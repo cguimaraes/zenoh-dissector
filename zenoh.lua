@@ -16,16 +16,34 @@
 --
 
 ------- DISSECTOR INFO --------
+local proto_zenoh_udp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
+local proto_zenoh_tcp = Proto("zenoh-udp", "Zenoh Protocol over UDP")
 local proto_zenoh = Proto("zenoh", "Zenoh Protocol")
 
 
 ---------- DISSECTOR ----------
-function proto_zenoh.dissector(buf, pinfo, root)
-  if buf:len() == 0 then return end
+function dissector(buf, pinfo, root, is_tcp)
+  if buf:len() < 2 and is_tcp == true then return
+  elseif buf:len() == 0 and is_tcp == false then return end
+
+  i = 0
+  if is_tcp == true then
+    f_size = buf(i, i + 1)
+    i = i + 2
+  else
+    f_size = buf():len()
+  end
 
   pinfo.cols.protocol = proto_zenoh.name
   local tree = root:add(proto_zenoh, buf())
-  i = 0
+end
+
+function proto_zenoh_udp.dissector(buf, pinfo, root)
+    dissector(buf, pinfo, root, false)
+end
+
+function proto_zenoh_tcp.dissector(buf, pinfo, root)
+    dissector(buf, pinfo, root, true)
 end
 
 -- register zenoh to handle ports
@@ -33,9 +51,9 @@ end
 --  * 7447/udp : the zenoh scouting protocol using UDP multicast
 do
     local tcp_port_table = DissectorTable.get("tcp.port")
-    tcp_port_table:add(7447, proto_zenoh)
+    tcp_port_table:add(7447, proto_zenoh_tcp)
 
     local udp_port_table = DissectorTable.get("udp.port")
-    udp_port_table:add(7447, proto_zenoh)
+    udp_port_table:add(7447, proto_zenoh_udp)
 end
 
