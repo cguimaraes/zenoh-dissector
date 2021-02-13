@@ -209,10 +209,8 @@ function parse_header_flags(tree, buf, whatami)
 end
 
 function parse_header(tree, buf)
-  local h_subtree = tree:add(proto_zenoh, buf(), "Header")
-
-  whatami = parse_whatami(h_subtree, buf(0, 1):uint())
-  parse_header_flags(h_subtree, buf(0, 1), whatami)
+  whatami = parse_whatami(tree, buf(0, 1):uint())
+  parse_header_flags(tree, buf(0, 1), whatami)
 end
 
 function parse_init(tree, buf)
@@ -264,11 +262,12 @@ function dissector(buf, pinfo, root, is_tcp)
   pinfo.cols.protocol = proto_zenoh.name
   local tree = root:add(proto_zenoh, buf())
 
-  parse_header(tree, buf(i, i + 1))
+  local h_subtree = tree:add(proto_zenoh, buf(i, 1), "Header")
+  parse_header(h_subtree, buf(i, i + 1))
   i = i + 1
 
   -- PAYLOAD
-  local p_subtree = tree:add(proto_zenoh, buf(i, -1), "Payload")
+  local p_subtree = tree:add(proto_zenoh, buf(i, f_size - i), "Payload")
 
   if whatami == ZENOH_WHATAMI.DECLARE then
   elseif whatami == ZENOH_WHATAMI.DATA then
