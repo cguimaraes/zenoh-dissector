@@ -31,7 +31,7 @@ function zint_decode(buf)
   local val = 0
 
   repeat
-    tmp = buf(i, i + 1):uint()
+    tmp = buf(i, 1):uint()
     val = bit.bor(val, bit.lshift(bit.band(tmp, 0x7f), i * 7))
     i = i + 1
   until (bit.band(tmp, 0x80) == 0x00)
