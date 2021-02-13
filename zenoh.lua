@@ -96,6 +96,17 @@ function get_init_flag_description(flag)
     return f_description
 end
 
+function get_open_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description = "Unused"      -- X
+    elseif flag == 0x02 then f_description = "TimeRes" -- T
+    elseif flag == 0x01 then f_description = "Ack"     -- A
+    end
+
+    return f_description
+end
+
 
 --- DISSECTOR INFO & FIELDS ---
 local proto_zenoh_udp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
@@ -113,6 +124,12 @@ proto_zenoh.fields.init_whatami = ProtoField.uint8 ("zenoh.init.whatami", "WhatA
 proto_zenoh.fields.init_peerid = ProtoField.bytes("zenoh.init.peer_id", "Peer ID", base.NONE)
 proto_zenoh.fields.init_snresolution = ProtoField.uint8("zenoh.init.sn_resolution", "SN Resolution", base.u8)
 proto_zenoh.fields.init_cookie = ProtoField.bytes("zenoh.init.cookie", "Cookie", base.NONE)
+
+-- Open Message Specific
+proto_zenoh.fields.open_flags = ProtoField.uint8 ("zenoh.open.flags", "Flags", base.HEX)
+proto_zenoh.fields.open_lease = ProtoField.uint8("zenoh.open.lease", "Lease Period", base.u8)
+proto_zenoh.fields.open_initialsn = ProtoField.uint8("zenoh.open.initial_sn", "Initial SN", base.u8)
+proto_zenoh.fields.open_cookie = ProtoField.bytes("zenoh.open.cookie", "Cookie", base.NONE)
 
 
 ------ DISSECTOR HELPERS ------
@@ -179,6 +196,7 @@ function parse_header_flags(tree, buf, whatami)
     elseif whatami == SESSION_WHATAMI.INIT then
       flag = get_init_flag_description(bit.band(h_flags, v))
     elseif whatami == SESSION_WHATAMI.OPEN then
+      flag = get_open_flag_description(bit.band(h_flags, v))
     elseif whatami == SESSION_WHATAMI.CLOSE then
     elseif whatami == SESSION_WHATAMI.SYNC then
     elseif whatami == SESSION_WHATAMI.ACK_NACK then
@@ -197,6 +215,7 @@ function parse_header_flags(tree, buf, whatami)
   elseif whatami == SESSION_WHATAMI.INIT then
     tree:add(proto_zenoh.fields.init_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.OPEN then
+    tree:add(proto_zenoh.fields.open_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.CLOSE then
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
@@ -219,7 +238,7 @@ function parse_init(tree, buf)
   if bit.band(h_flags, 0x01) == 0x00 then
     tree:add(proto_zenoh.fields.init_vmaj, bit.rshift(buf(i, i + 1):uint(), 4))
     tree:add(proto_zenoh.fields.init_vmin, bit.band(buf(i, i + 1):uint(), 0xff))
-  i = i + 1
+    i = i + 1
   end
 
   local val, len = zint_decode(buf(i, -1))
@@ -242,6 +261,29 @@ function parse_init(tree, buf)
     i = i + len
   end
 end
+
+function parse_open(tree, buf)
+  local i = 0
+  local val, len = zint_decode(buf, i)
+  if bit.band(h_flags, 0x02) == 0x02 then
+    tree:add(proto_zenoh.fields.open_lease, val):append_text(" seconds")
+  else
+    tree:add(proto_zenoh.fields.open_lease, val):append_text(" microseconds")
+  end
+  i = i + len
+
+  val, len = zint_decode(buf(i, -1))
+  tree:add(proto_zenoh.fields.open_initialsn, val)
+  i = i + len
+
+  if bit.band(h_flags, 0x01) == 0x00 then
+    val, len = zbytes_decode(buf(i, -1))
+    tree:add(proto_zenoh.fields.open_cookie, val)
+    i = i + len
+  end
+end
+
+
 
 
 ---------- DISSECTOR ----------
@@ -277,6 +319,7 @@ function dissector(buf, pinfo, root, is_tcp)
   elseif whatami == SESSION_WHATAMI.INIT then
     parse_init(p_subtree, buf(i, (f_size - i)))
   elseif whatami == SESSION_WHATAMI.OPEN then
+    parse_open(p_subtree, buf(i, (f_size - i)))
   elseif whatami == SESSION_WHATAMI.CLOSE then
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
