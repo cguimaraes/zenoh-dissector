@@ -107,6 +107,17 @@ function get_open_flag_description(flag)
     return f_description
 end
 
+function get_frame_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "End"      -- E
+    elseif flag == 0x02 then f_description = "Fragment" -- F
+    elseif flag == 0x01 then f_description = "Reliable" -- R
+    end
+
+    return f_description
+end
+
 
 --- DISSECTOR INFO & FIELDS ---
 local proto_zenoh_udp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
@@ -130,6 +141,11 @@ proto_zenoh.fields.open_flags = ProtoField.uint8 ("zenoh.open.flags", "Flags", b
 proto_zenoh.fields.open_lease = ProtoField.uint8("zenoh.open.lease", "Lease Period", base.u8)
 proto_zenoh.fields.open_initialsn = ProtoField.uint8("zenoh.open.initial_sn", "Initial SN", base.u8)
 proto_zenoh.fields.open_cookie = ProtoField.bytes("zenoh.open.cookie", "Cookie", base.NONE)
+
+-- Frame Message Specific
+proto_zenoh.fields.frame_flags = ProtoField.uint8 ("zenoh.frame.flags", "Flags", base.HEX)
+proto_zenoh.fields.frame_sn = ProtoField.uint8("zenoh.frame.sn", "SN", base.u8)
+proto_zenoh.fields.frame_payload = ProtoField.uint8("zenoh.frame.payload", "Payload", base.u8)
 
 
 ------ DISSECTOR HELPERS ------
@@ -203,6 +219,7 @@ function parse_header_flags(tree, buf, whatami)
     elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
     elseif whatami == SESSION_WHATAMI.PING_PONG then
     elseif whatami == SESSION_WHATAMI.FRAME then
+      flag = get_frame_flag_description(bit.band(h_flags, v))
     end
 
     if bit.band(h_flags, v) == v then
@@ -222,6 +239,7 @@ function parse_header_flags(tree, buf, whatami)
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
   elseif whatami == SESSION_WHATAMI.PING_PONG then
   elseif whatami == SESSION_WHATAMI.FRAME then
+    tree:add(proto_zenoh.fields.frame_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   end
 
   -- TODO: add bitwise flag substree
@@ -272,26 +290,33 @@ function parse_open(tree, buf)
   end
   i = i + len
 
-  val, len = zint_decode(buf(i, -1))
+  local val, len = zint_decode(buf(i, -1))
   tree:add(proto_zenoh.fields.open_initialsn, val)
   i = i + len
 
   if bit.band(h_flags, 0x01) == 0x00 then
-    val, len = zbytes_decode(buf(i, -1))
+    local val, len = zbytes_decode(buf(i, -1))
     tree:add(proto_zenoh.fields.open_cookie, val)
     i = i + len
   end
 end
 
+function parse_frame(tree, buf)
+  local i = 0
+  local val, len = zint_decode(buf(i, -1))
+  tree:add(proto_zenoh.fields.frame_sn, val)
+  i = i + len
+
+  dissector(buf(i, -1), pinfo, tree, false, true)
+end
 
 
 
 ---------- DISSECTOR ----------
-function dissector(buf, pinfo, root, is_tcp)
-  if buf:len() < 2 and is_tcp == true then return
-  elseif buf:len() == 0 and is_tcp == false then return end
-
+function dissector(buf, pinfo, root, is_tcp, is_frame)
   local i = 0
+  if buf:len() < 2 and is_tcp == true then return
+  elseif buf:len() == 0 and (is_tcp == false or is_frame == true) then return end
 
   local f_size = buf():len()
   if is_tcp == true then
@@ -299,8 +324,12 @@ function dissector(buf, pinfo, root, is_tcp)
     i = i + 2
   end
 
-  pinfo.cols.protocol = proto_zenoh.name
-  local tree = root:add(proto_zenoh, buf())
+  if is_frame == false then
+    pinfo.cols.protocol = proto_zenoh.name
+    tree = root:add(proto_zenoh, buf())
+  else
+    tree = root:add(proto_zenoh, buf(i, f_size), "Frame Payload")
+  end
 
   local h_subtree = tree:add(proto_zenoh, buf(i, 1), "Header")
   parse_header(h_subtree, buf(i, i + 1))
@@ -326,18 +355,16 @@ function dissector(buf, pinfo, root, is_tcp)
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
   elseif whatami == SESSION_WHATAMI.PING_PONG then
   elseif whatami == SESSION_WHATAMI.FRAME then
+    parse_frame(p_subtree, buf(i, (f_size - i)))
   end
-
-
-
 end
 
 function proto_zenoh_udp.dissector(buf, pinfo, root)
-    dissector(buf, pinfo, root, false)
+    dissector(buf, pinfo, root, false, false)
 end
 
 function proto_zenoh_tcp.dissector(buf, pinfo, root)
-    dissector(buf, pinfo, root, true)
+    dissector(buf, pinfo, root, true, false)
 end
 
 -- register zenoh to handle ports
