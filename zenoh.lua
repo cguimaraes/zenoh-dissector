@@ -26,6 +26,29 @@ function protect(tbl)
   })
 end
 
+function zint_decode(buf)
+  local i = 0
+  local val = 0
+
+  repeat
+    tmp = buf(i, i + 1):uint()
+    val = bit.bor(val, bit.lshift(bit.band(tmp, 0x7f), i * 7))
+    i = i + 1
+  until (bit.band(tmp, 0x80) == 0x00)
+
+  return val, i
+end
+
+function zbytes_decode(buf)
+  local i = 0
+  local val = 0
+
+  b_val, b_len = zint_decode(buf)
+  i = i + b_len + b_val
+
+  return buf(b_len, b_val), i
+end
+
 
 ---------- CONSTANTS ----------
 -- whatami --> Zenoh Message Types
@@ -62,6 +85,17 @@ DECORATORS_WHATAMI = {
 }
 DECORATORS_WHATAMI = protect(DECORATORS_WHATAMI)
 
+function get_init_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "Unused"        -- X
+    elseif flag == 0x02 then f_description = "SN Resolution" -- S
+    elseif flag == 0x01 then f_description = "Ack"           -- A
+    end
+
+    return f_description
+end
+
 
 --- DISSECTOR INFO & FIELDS ---
 local proto_zenoh_udp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
@@ -70,6 +104,15 @@ local proto_zenoh = Proto("zenoh", "Zenoh Protocol")
 
 -- Zenoh Header
 proto_zenoh.fields.header_whatami = ProtoField.uint8("zenoh.whatami", "WhatAmI (Type)", base.HEX)
+
+-- Init Message Specific
+proto_zenoh.fields.init_flags = ProtoField.uint8 ("zenoh.init.flags", "Flags", base.HEX)
+proto_zenoh.fields.init_vmaj = ProtoField.uint8 ("zenoh.init.v_maj", "VMaj", base.u8)
+proto_zenoh.fields.init_vmin = ProtoField.uint8 ("zenoh.init.v_min", "VMin", base.u8)
+proto_zenoh.fields.init_whatami = ProtoField.uint8 ("zenoh.init.whatami", "WhatAmI", base.u8)
+proto_zenoh.fields.init_peerid = ProtoField.bytes("zenoh.init.peer_id", "Peer ID", base.NONE)
+proto_zenoh.fields.init_snresolution = ProtoField.uint8("zenoh.init.sn_resolution", "SN Resolution", base.u8)
+proto_zenoh.fields.init_cookie = ProtoField.bytes("zenoh.init.cookie", "Cookie", base.NONE)
 
 
 ------ DISSECTOR HELPERS ------
@@ -125,10 +168,83 @@ function parse_whatami(tree, whatami)
   return NULL
 end
 
+function parse_header_flags(tree, buf, whatami)
+  local f_bitwise = {0x04, 0x02, 0x01}
+  h_flags = bit.rshift(buf(0,1):uint(), 5)
+
+  local f_str = ""
+  for i,v in ipairs(f_bitwise) do
+    if whatami == SESSION_WHATAMI.SCOUT then
+    elseif whatami == SESSION_WHATAMI.HELLO then
+    elseif whatami == SESSION_WHATAMI.INIT then
+      local flag = get_init_flag_description(bit.band(h_flags, v))
+    elseif whatami == SESSION_WHATAMI.OPEN then
+    elseif whatami == SESSION_WHATAMI.CLOSE then
+    elseif whatami == SESSION_WHATAMI.SYNC then
+    elseif whatami == SESSION_WHATAMI.ACK_NACK then
+    elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+    elseif whatami == SESSION_WHATAMI.PING_PONG then
+    elseif whatami == SESSION_WHATAMI.FRAME then
+    end
+
+    if bit.band(h_flags, v) == v then
+      f_str = f_str .. flag .. ", "
+    end
+  end
+
+  if whatami == SESSION_WHATAMI.SCOUT then
+  elseif whatami == SESSION_WHATAMI.HELLO then
+  elseif whatami == SESSION_WHATAMI.INIT then
+    tree:add(proto_zenoh.fields.init_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+  elseif whatami == SESSION_WHATAMI.OPEN then
+  elseif whatami == SESSION_WHATAMI.CLOSE then
+  elseif whatami == SESSION_WHATAMI.SYNC then
+  elseif whatami == SESSION_WHATAMI.ACK_NACK then
+  elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+  elseif whatami == SESSION_WHATAMI.PING_PONG then
+  elseif whatami == SESSION_WHATAMI.FRAME then
+  end
+
+  -- TODO: add bitwise flag substree
+end
+
 function parse_header(tree, buf)
   local h_subtree = tree:add(proto_zenoh, buf(), "Header")
 
   whatami = parse_whatami(h_subtree, buf(0, 1):uint())
+  parse_header_flags(h_subtree, buf(0, 1), whatami)
+end
+
+function parse_init(tree, buf)
+  local i = 0
+
+  if bit.band(h_flags, 0x01) == 0x00 then
+    tree:add(proto_zenoh.fields.init_vmaj, bit.rshift(buf(i, i + 1):uint(), 4))
+    tree:add(proto_zenoh.fields.init_vmin, bit.band(buf(i, i + 1):uint(), 0xff))
+  i = i + 1
+  end
+
+  local val, len = zint_decode(buf(i, -1))
+  tree:add(proto_zenoh.fields.init_whatami, val)
+  i = i + len
+
+  if bit.band(h_flags, 0x01) == 0x00 then
+    local val, len = zbytes_decode(buf(i, -1))
+    tree:add(proto_zenoh.fields.init_peerid, val)
+    i = i + len
+  end
+
+  if bit.band(h_flags, 0x02) == 0x02 then
+    local val, len = zbytes_decode(buf(i, -1))
+    tree:add(proto_zenoh.fields.init_snresolution, val)
+    i = i + len
+  end
+
+  if bit.band(h_flags, 0x01) == 0x01 then
+    local val, len = zbytes_decode(buf(i, -1))
+    tree:add(proto_zenoh.fields.init_cookie, val)
+    i = i + len
+  end
 end
 
 
@@ -150,6 +266,30 @@ function dissector(buf, pinfo, root, is_tcp)
 
   parse_header(tree, buf(i, i + 1))
   i = i + 1
+
+  -- PAYLOAD
+  local p_subtree = tree:add(proto_zenoh, buf(i, -1), "Payload")
+
+  if whatami == ZENOH_WHATAMI.DECLARE then
+  elseif whatami == ZENOH_WHATAMI.DATA then
+  elseif whatami == ZENOH_WHATAMI.QUERY then
+  elseif whatami == ZENOH_WHATAMI.PULL then
+  elseif whatami == ZENOH_WHATAMI.UNIT then
+  elseif whatami == SESSION_WHATAMI.SCOUT then
+  elseif whatami == SESSION_WHATAMI.HELLO then
+  elseif whatami == SESSION_WHATAMI.INIT then
+    parse_init(p_subtree, buf(i, (f_size - i)))
+  elseif whatami == SESSION_WHATAMI.OPEN then
+  elseif whatami == SESSION_WHATAMI.CLOSE then
+  elseif whatami == SESSION_WHATAMI.SYNC then
+  elseif whatami == SESSION_WHATAMI.ACK_NACK then
+  elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+  elseif whatami == SESSION_WHATAMI.PING_PONG then
+  elseif whatami == SESSION_WHATAMI.FRAME then
+  end
+
+
+
 end
 
 function proto_zenoh_udp.dissector(buf, pinfo, root)
