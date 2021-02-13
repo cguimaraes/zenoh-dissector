@@ -177,7 +177,7 @@ function parse_header_flags(tree, buf, whatami)
     if whatami == SESSION_WHATAMI.SCOUT then
     elseif whatami == SESSION_WHATAMI.HELLO then
     elseif whatami == SESSION_WHATAMI.INIT then
-      local flag = get_init_flag_description(bit.band(h_flags, v))
+      flag = get_init_flag_description(bit.band(h_flags, v))
     elseif whatami == SESSION_WHATAMI.OPEN then
     elseif whatami == SESSION_WHATAMI.CLOSE then
     elseif whatami == SESSION_WHATAMI.SYNC then
@@ -226,11 +226,9 @@ function parse_init(tree, buf)
   tree:add(proto_zenoh.fields.init_whatami, val)
   i = i + len
 
-  if bit.band(h_flags, 0x01) == 0x00 then
-    local val, len = zbytes_decode(buf(i, -1))
-    tree:add(proto_zenoh.fields.init_peerid, val)
-    i = i + len
-  end
+  local val, len = zbytes_decode(buf(i, -1))
+  tree:add(proto_zenoh.fields.init_peerid, val)
+  i = i + len
 
   if bit.band(h_flags, 0x02) == 0x02 then
     local val, len = zbytes_decode(buf(i, -1))
