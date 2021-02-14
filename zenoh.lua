@@ -207,7 +207,13 @@ function parse_header_flags(tree, buf, whatami)
 
   local f_str = ""
   for i,v in ipairs(f_bitwise) do
-    if whatami == SESSION_WHATAMI.SCOUT then
+    if whatami == ZENOH_WHATAMI.DECLARE then
+    elseif whatami == ZENOH_WHATAMI.DATA then
+    elseif whatami == ZENOH_WHATAMI.QUERY then
+    elseif whatami == ZENOH_WHATAMI.PULL then
+    elseif whatami == ZENOH_WHATAMI.UNIT then
+    elseif whatami == ZENOH_WHATAMI.LINK_STATE_LIST then
+    elseif whatami == SESSION_WHATAMI.SCOUT then
     elseif whatami == SESSION_WHATAMI.HELLO then
     elseif whatami == SESSION_WHATAMI.INIT then
       flag = get_init_flag_description(bit.band(h_flags, v))
@@ -227,7 +233,13 @@ function parse_header_flags(tree, buf, whatami)
     end
   end
 
-  if whatami == SESSION_WHATAMI.SCOUT then
+  if whatami == ZENOH_WHATAMI.DECLARE then
+  elseif whatami == ZENOH_WHATAMI.DATA then
+  elseif whatami == ZENOH_WHATAMI.QUERY then
+  elseif whatami == ZENOH_WHATAMI.PULL then
+  elseif whatami == ZENOH_WHATAMI.UNIT then
+  elseif whatami == ZENOH_WHATAMI.LINK_STATE_LIST then
+  elseif whatami == SESSION_WHATAMI.SCOUT then
   elseif whatami == SESSION_WHATAMI.HELLO then
   elseif whatami == SESSION_WHATAMI.INIT then
     tree:add(proto_zenoh.fields.init_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
@@ -311,7 +323,6 @@ function parse_frame(tree, buf)
 end
 
 
-
 ---------- DISSECTOR ----------
 function dissector(buf, pinfo, root, is_tcp, is_frame)
   local i = 0
@@ -343,6 +354,7 @@ function dissector(buf, pinfo, root, is_tcp, is_frame)
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
   elseif whatami == ZENOH_WHATAMI.UNIT then
+  elseif whatami == ZENOH_WHATAMI.LINK_STATE_LIST then
   elseif whatami == SESSION_WHATAMI.SCOUT then
   elseif whatami == SESSION_WHATAMI.HELLO then
   elseif whatami == SESSION_WHATAMI.INIT then
