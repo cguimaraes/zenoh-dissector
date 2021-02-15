@@ -49,6 +49,16 @@ function zbytes_decode(buf)
   return buf(b_len, b_val), i
 end
 
+function zstring_decode(buf)
+  local i = 0
+  local val = 0
+
+  b_val, b_len = zint_decode(buf)
+  i = i + b_len + b_val
+
+  return string.fromhex(buf(b_len, b_val)), i
+end
+
 
 ---------- CONSTANTS ----------
 -- whatami --> Zenoh Message Types
@@ -84,6 +94,42 @@ DECORATORS_WHATAMI = {
   ATTACHMENT      = 0x1f
 }
 DECORATORS_WHATAMI = protect(DECORATORS_WHATAMI)
+
+-- whatami --> Decorators Message Types
+DECLARATION_ID = {
+  RESOURCE          = 0x01,
+  PUBLISHER         = 0x02,
+  SUBSCRIBER        = 0x03,
+  QUERYABLE         = 0x04,
+  FORGET_RESOURCE   = 0x11,
+  FORGET_PUBLISHER  = 0x12,
+  FORGET_SUBSCRIBER = 0x13,
+  FORGET_QUERYABLE  = 0x14
+}
+DECLARATION_ID = protect(DECLARATION_ID)
+
+
+function get_declare_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "Unused" -- X
+    elseif flag == 0x02 then f_description = "Unused" -- X
+    elseif flag == 0x01 then f_description = "Unused" -- X
+    end
+
+    return f_description
+end
+
+function get_declare_resource_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "CloseLink" -- K
+    elseif flag == 0x02 then f_description = "Unused" -- X
+    elseif flag == 0x01 then f_description = "Unused" -- X
+    end
+
+    return f_description
+end
 
 function get_init_flag_description(flag)
     local f_description = "Unknown"
@@ -126,6 +172,11 @@ local proto_zenoh = Proto("zenoh", "Zenoh Protocol")
 
 -- Zenoh Header
 proto_zenoh.fields.header_whatami = ProtoField.uint8("zenoh.whatami", "WhatAmI (Type)", base.HEX)
+
+-- Declare Message Specific
+proto_zenoh.fields.declare_flags = ProtoField.uint8 ("zenoh.declare.flags", "Flags", base.HEX)
+proto_zenoh.fields.declare_num_of_declaration = ProtoField.uint8 ("zenoh.declare.number", "Number of Declarations", base.u8)
+proto_zenoh.fields.declare_declaration_array = ProtoField.bytes ("zenoh.declare.array", "Declaration Array", base.NONE)
 
 -- Init Message Specific
 proto_zenoh.fields.init_flags = ProtoField.uint8 ("zenoh.init.flags", "Flags", base.HEX)
@@ -208,6 +259,7 @@ function parse_header_flags(tree, buf, whatami)
   local f_str = ""
   for i,v in ipairs(f_bitwise) do
     if whatami == ZENOH_WHATAMI.DECLARE then
+      flag = get_declare_flag_description(bit.band(h_flags, v))
     elseif whatami == ZENOH_WHATAMI.DATA then
     elseif whatami == ZENOH_WHATAMI.QUERY then
     elseif whatami == ZENOH_WHATAMI.PULL then
@@ -234,6 +286,7 @@ function parse_header_flags(tree, buf, whatami)
   end
 
   if whatami == ZENOH_WHATAMI.DECLARE then
+    tree:add(proto_zenoh.fields.declare_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == ZENOH_WHATAMI.DATA then
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
@@ -257,9 +310,97 @@ function parse_header_flags(tree, buf, whatami)
   -- TODO: add bitwise flag substree
 end
 
+
+function parse_declare_flags(tree, buf, did)
+  local f_bitwise = {0x04, 0x02, 0x01}
+  d_flags = bit.rshift(buf(0,1):uint(), 5)
+
+  local f_str = ""
+  for i,v in ipairs(f_bitwise) do
+    if did == DECLARATION_ID.RESOURCE then
+      flag = get_declare_flag_description(bit.band(h_flags, v))
+    elseif did == DECLARATION_ID.PUBLISHER then
+    elseif did == DECLARATION_ID.SUBSCRIBER then
+    elseif did == DECLARATION_ID.QUERYABLE then
+    elseif did == DECLARATION_ID.FORGET_RESOURCE then
+    elseif did == DECLARATION_ID.FORGET_PUBLISHER then
+    elseif did == DECLARATION_ID.FORGET_SUBSCRIBER then
+    elseif did == DECLARATION_ID.FORGET_QUERYABLE then
+    end
+
+    if bit.band(h_flags, v) == v then
+      f_str = f_str .. flag .. ", "
+    end
+  end
+
+  if did == DECLARATION_ID.RESOURCE then
+    tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
+  elseif did == DECLARATION_ID.PUBLISHER then
+  elseif did == DECLARATION_ID.SUBSCRIBER then
+  elseif did == DECLARATION_ID.QUERYABLE then
+  elseif did == DECLARATION_ID.FORGET_RESOURCE then
+  elseif did == DECLARATION_ID.FORGET_PUBLISHER then
+  elseif did == DECLARATION_ID.FORGET_SUBSCRIBER then
+  elseif did == DECLARATION_ID.FORGET_QUERYABLE then
+  end
+
+  -- TODO: add bitwise flag substree
+end
+
+
 function parse_header(tree, buf)
   whatami = parse_whatami(tree, buf(0, 1):uint())
   parse_header_flags(tree, buf(0, 1), whatami)
+end
+
+function parse_declare_resource(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.RESOURCE)
+  i = i + 1
+
+  local val, len = zint_decode(buf(i, -1))
+  tree:add("Resource ID: ", buf(i, len), val)
+  i = i + len
+
+  local val, len = zint_decode(buf(i, -1))
+  tree:add("ResKey Resource ID: ", buf(i, len), val)
+  i = i + len
+
+  if bit.band(h_flags, 0x04) == 0x04 then
+    local val, len = zstring_decode(buf(i, -1))
+    tree:add("ResKey Suffix: ", val)
+    i = i + len
+  end
+
+  return i
+end
+
+function parse_declare(tree, buf)
+  local i = 0
+
+  local a_size, len = zint_decode(buf(i, -1))
+  tree:add(proto_zenoh.fields.declare_num_of_declaration, a_size)
+  i = i + len
+
+  while a_size > 0 do
+    local did = bit.band(buf(i, 1):uint(), 0x1F)
+
+    if did == DECLARATION_ID.RESOURCE then
+      a_subtree = tree:add("Declaration [" .. a_size .. "] = Resource Declaration")
+      len = parse_declare_resource(a_subtree, buf(i, -1))
+      i = i + len
+    elseif bit.band(did, 0x1F) == DECLARATION_ID.PUBLISHER then
+    elseif bit.band(did, 0x1F) == DECLARATION_ID.SUBSCRIBER then
+    elseif bit.band(did, 0x1F) == DECLARATION_ID.QUERYABLE then
+    elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_RESOURCE then
+    elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_PUBLISHER then
+    elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_SUBSCRIBER then
+    elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_QUERYABLE then
+    end
+    a_size = a_size - 1
+  end
+
 end
 
 function parse_init(tree, buf)
@@ -350,6 +491,7 @@ function dissector(buf, pinfo, root, is_tcp, is_frame)
   local p_subtree = tree:add(proto_zenoh, buf(i, f_size - i), "Payload")
 
   if whatami == ZENOH_WHATAMI.DECLARE then
+    parse_declare(p_subtree, buf(i, (f_size - i)))
   elseif whatami == ZENOH_WHATAMI.DATA then
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
