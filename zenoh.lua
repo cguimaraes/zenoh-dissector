@@ -407,8 +407,8 @@ function parse_init(tree, buf)
   local i = 0
 
   if bit.band(h_flags, 0x01) == 0x00 then
-    tree:add(proto_zenoh.fields.init_vmaj, bit.rshift(buf(i, i + 1):uint(), 4))
-    tree:add(proto_zenoh.fields.init_vmin, bit.band(buf(i, i + 1):uint(), 0xff))
+    tree:add(proto_zenoh.fields.init_vmaj, bit.rshift(buf(i, 1):uint(), 4))
+    tree:add(proto_zenoh.fields.init_vmin, bit.band(buf(i, 1):uint(), 0xff))
     i = i + 1
   end
 
@@ -472,7 +472,7 @@ function dissector(buf, pinfo, root, is_tcp, is_frame)
 
   local f_size = buf():len()
   if is_tcp == true then
-    f_size = buf(i, i + 1):uint()
+    f_size = buf(i, 2):le_uint()
     i = i + 2
   end
 
@@ -484,8 +484,8 @@ function dissector(buf, pinfo, root, is_tcp, is_frame)
   end
 
   local h_subtree = tree:add(proto_zenoh, buf(i, 1), "Header")
-  parse_header(h_subtree, buf(i, i + 1))
-  i = i + 1
+  local whatami, len = parse_header(h_subtree, buf(i, 1))
+  i = i + len
 
   -- PAYLOAD
   local p_subtree = tree:add(proto_zenoh, buf(i, f_size - i), "Payload")
