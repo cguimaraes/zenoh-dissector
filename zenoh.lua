@@ -201,7 +201,9 @@ proto_zenoh.fields.frame_payload = ProtoField.uint8("zenoh.frame.payload", "Payl
 
 ------ DISSECTOR HELPERS ------
 
-function parse_whatami(tree, whatami)
+function parse_whatami(tree, buf)
+  local whatami = buf(0, 1):uint()
+
   if whatami == ZENOH_WHATAMI.DECLARE then
     tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Declare)")
     return ZENOH_WHATAMI.DECLARE
@@ -349,8 +351,13 @@ end
 
 
 function parse_header(tree, buf)
-  whatami = parse_whatami(tree, buf(0, 1):uint())
-  parse_header_flags(tree, buf(0, 1), whatami)
+  local i = 0
+
+  local whatami = parse_whatami(tree, buf(i, 1))
+  parse_header_flags(tree, buf(i, 1), whatami)
+  i = i + 1
+
+  return whatami, i
 end
 
 function parse_declare_resource(tree, buf)
@@ -363,12 +370,12 @@ function parse_declare_resource(tree, buf)
   tree:add("Resource ID: ", buf(i, len), val)
   i = i + len
 
-  local val, len = zint_decode(buf(i, -1))
+  val, len = zint_decode(buf(i, -1))
   tree:add("ResKey Resource ID: ", buf(i, len), val)
   i = i + len
 
   if bit.band(h_flags, 0x04) == 0x04 then
-    local val, len = zstring_decode(buf(i, -1))
+    val, len = zstring_decode(buf(i, -1))
     tree:add("ResKey Suffix: ", val)
     i = i + len
   end
@@ -387,9 +394,11 @@ function parse_declare(tree, buf)
     local did = bit.band(buf(i, 1):uint(), 0x1F)
 
     if did == DECLARATION_ID.RESOURCE then
-      a_subtree = tree:add("Declaration [" .. a_size .. "] = Resource Declaration")
+      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Resource Declaration")
+
       len = parse_declare_resource(a_subtree, buf(i, -1))
       i = i + len
+
     elseif bit.band(did, 0x1F) == DECLARATION_ID.PUBLISHER then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.SUBSCRIBER then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.QUERYABLE then
@@ -398,9 +407,11 @@ function parse_declare(tree, buf)
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_SUBSCRIBER then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_QUERYABLE then
     end
+
     a_size = a_size - 1
   end
-
+ 
+  return i
 end
 
 function parse_init(tree, buf)
@@ -416,25 +427,28 @@ function parse_init(tree, buf)
   tree:add(proto_zenoh.fields.init_whatami, val)
   i = i + len
 
-  local val, len = zbytes_decode(buf(i, -1))
+  val, len = zbytes_decode(buf(i, -1))
   tree:add(proto_zenoh.fields.init_peerid, val)
   i = i + len
 
   if bit.band(h_flags, 0x02) == 0x02 then
-    local val, len = zbytes_decode(buf(i, -1))
+    val, len = zbytes_decode(buf(i, -1))
     tree:add(proto_zenoh.fields.init_snresolution, val)
     i = i + len
   end
 
   if bit.band(h_flags, 0x01) == 0x01 then
-    local val, len = zbytes_decode(buf(i, -1))
+    val, len = zbytes_decode(buf(i, -1))
     tree:add(proto_zenoh.fields.init_cookie, val)
     i = i + len
   end
+
+  return i
 end
 
 function parse_open(tree, buf)
   local i = 0
+
   local val, len = zint_decode(buf, i)
   if bit.band(h_flags, 0x02) == 0x02 then
     tree:add(proto_zenoh.fields.open_lease, val):append_text(" seconds")
@@ -443,55 +457,67 @@ function parse_open(tree, buf)
   end
   i = i + len
 
-  local val, len = zint_decode(buf(i, -1))
+  val, len = zint_decode(buf(i, -1))
   tree:add(proto_zenoh.fields.open_initialsn, val)
   i = i + len
 
   if bit.band(h_flags, 0x01) == 0x00 then
-    local val, len = zbytes_decode(buf(i, -1))
+    val, len = zbytes_decode(buf(i, -1))
     tree:add(proto_zenoh.fields.open_cookie, val)
     i = i + len
   end
+
+  return i
 end
 
-function parse_frame(tree, buf)
+function parse_frame(tree, buf, f_size)
   local i = 0
+
   local val, len = zint_decode(buf(i, -1))
   tree:add(proto_zenoh.fields.frame_sn, val)
   i = i + len
 
-  dissector(buf(i, -1), pinfo, tree, false, true)
+  repeat
+    len = decode_message(tree, buf(i, -1))
+    i = i + len
+  until i == f_size
+
+  return i
 end
 
 
 ---------- DISSECTOR ----------
-function dissector(buf, pinfo, root, is_tcp, is_frame)
+function dissector(buf, pinfo, root, is_tcp)
   local i = 0
+
   if buf:len() < 2 and is_tcp == true then return
   elseif buf:len() == 0 and (is_tcp == false or is_frame == true) then return end
 
-  local f_size = buf():len()
   if is_tcp == true then
     f_size = buf(i, 2):le_uint()
     i = i + 2
+  else
+    f_size = buf():len()
   end
 
-  if is_frame == false then
-    pinfo.cols.protocol = proto_zenoh.name
-    tree = root:add(proto_zenoh, buf())
-  else
-    tree = root:add(proto_zenoh, buf(i, f_size), "Frame Payload")
-  end
+  pinfo.cols.protocol = proto_zenoh.name
+  tree = root:add(proto_zenoh, buf())
+
+  decode_message(tree, buf(i, f_size))
+end
+
+function decode_message(tree, buf)
+  local i = 0
 
   local h_subtree = tree:add(proto_zenoh, buf(i, 1), "Header")
   local whatami, len = parse_header(h_subtree, buf(i, 1))
   i = i + len
 
   -- PAYLOAD
-  local p_subtree = tree:add(proto_zenoh, buf(i, f_size - i), "Payload")
+  local p_subtree = tree:add(proto_zenoh, buf(i, -1), "Payload")
 
   if whatami == ZENOH_WHATAMI.DECLARE then
-    parse_declare(p_subtree, buf(i, (f_size - i)))
+    len = parse_declare(p_subtree, buf(i, -1))
   elseif whatami == ZENOH_WHATAMI.DATA then
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
@@ -500,25 +526,28 @@ function dissector(buf, pinfo, root, is_tcp, is_frame)
   elseif whatami == SESSION_WHATAMI.SCOUT then
   elseif whatami == SESSION_WHATAMI.HELLO then
   elseif whatami == SESSION_WHATAMI.INIT then
-    parse_init(p_subtree, buf(i, (f_size - i)))
+    len = parse_init(p_subtree, buf(i, -1))
   elseif whatami == SESSION_WHATAMI.OPEN then
-    parse_open(p_subtree, buf(i, (f_size - i)))
+    len = parse_open(p_subtree, buf(i, -1))
   elseif whatami == SESSION_WHATAMI.CLOSE then
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
   elseif whatami == SESSION_WHATAMI.PING_PONG then
   elseif whatami == SESSION_WHATAMI.FRAME then
-    parse_frame(p_subtree, buf(i, (f_size - i)))
+    len = parse_frame(p_subtree, buf(i, -i), f_size)
   end
+  i = i + len
+
+  return i
 end
 
 function proto_zenoh_udp.dissector(buf, pinfo, root)
-    dissector(buf, pinfo, root, false, false)
+    dissector(buf, pinfo, root, false)
 end
 
 function proto_zenoh_tcp.dissector(buf, pinfo, root)
-    dissector(buf, pinfo, root, true, false)
+    dissector(buf, pinfo, root, true)
 end
 
 -- register zenoh to handle ports
