@@ -164,6 +164,33 @@ function get_declare_queryable_flag_description(flag)
     return f_description
 end
 
+function get_data_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "ResourceKey" -- K
+    elseif flag == 0x02 then f_description = "DataInfo"    -- I
+    elseif flag == 0x01 then f_description = "Dropping"    -- D
+    end
+
+    return f_description
+end
+
+function get_data_internal_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x80 then f_description     = "Unused"          -- X
+    elseif flag == 0x40 then f_description = "Encoding"        -- G
+    elseif flag == 0x20 then f_description = "Kind"            -- F
+    elseif flag == 0x10 then f_description = "Timestamp"       -- E
+    elseif flag == 0x08 then f_description = "First Router ID" -- D
+    elseif flag == 0x04 then f_description = "First Router ID" -- C
+    elseif flag == 0x02 then f_description = "Source SN"       -- B
+    elseif flag == 0x01 then f_description = "Source ID"       -- A
+    end
+
+    return f_description
+end
+
 function get_init_flag_description(flag)
     local f_description = "Unknown"
 
@@ -221,6 +248,9 @@ proto_zenoh.fields.header_whatami = ProtoField.uint8("zenoh.whatami", "WhatAmI (
 proto_zenoh.fields.declare_flags = ProtoField.uint8 ("zenoh.declare.flags", "Flags", base.HEX)
 proto_zenoh.fields.declare_num_of_declaration = ProtoField.uint8 ("zenoh.declare.number", "Number of Declarations", base.u8)
 proto_zenoh.fields.declare_declaration_array = ProtoField.bytes ("zenoh.declare.array", "Declaration Array", base.NONE)
+
+-- Data Message Specific
+proto_zenoh.fields.data_flags = ProtoField.uint8 ("zenoh.data.flags", "Flags", base.HEX)
 
 -- Init Message Specific
 proto_zenoh.fields.init_flags = ProtoField.uint8 ("zenoh.init.flags", "Flags", base.HEX)
@@ -328,6 +358,7 @@ function parse_header_flags(tree, buf, whatami)
     if whatami == ZENOH_WHATAMI.DECLARE then
       flag = get_declare_flag_description(bit.band(h_flags, v))
     elseif whatami == ZENOH_WHATAMI.DATA then
+      flag = get_data_flag_description(bit.band(h_flags, v))
     elseif whatami == ZENOH_WHATAMI.QUERY then
     elseif whatami == ZENOH_WHATAMI.PULL then
     elseif whatami == ZENOH_WHATAMI.UNIT then
@@ -380,6 +411,27 @@ function parse_header_flags(tree, buf, whatami)
   -- TODO: add bitwise flag substree
 end
 
+function parse_data_flags(tree, buf)
+  local i = 0
+
+  local f_bitwise = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
+  local flags, len = zint_decode(buf(i, -1))
+  i = i + len
+
+  local f_str = ""
+  for i,v in ipairs(f_bitwise) do
+    flag = get_data_internal_flag_description(bit.band(flags, v))
+
+    if bit.band(d_flags, v) == v then
+      f_str = f_str .. flag .. ", "
+    end
+  end
+
+  tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
+  -- TODO: add bitwise flag substree
+
+  return flags, i
+end
 
 function parse_declare_flags(tree, buf, did)
   local f_bitwise = {0x04, 0x02, 0x01}
@@ -548,6 +600,90 @@ function parse_declare(tree, buf)
   return i
 end
 
+function parse_timestamp(tree, buf)
+  local i = 0
+
+  subtree = tree:add("Timestamp")
+
+  val, len = zint_decode(buf(i, -1))
+  subtree:add("Time: ", buf(i, len), val)
+  i = i + len
+
+  val, len = zbytes_decode(buf(i, -1))
+  subtree:add("ID: ", buf(i, len), val)
+  i = i + len
+
+  return i
+end
+
+function parse_datainfo(tree, buf)
+  local i = 0
+
+  local d_flags, len = parse_data_flags(tree, buf)
+  i = i + len
+
+  if bit.band(d_flags, 0x01) == 0x01 then
+    val, len = zbytes_decode(buf(i, -1))
+    tree:add("Source ID: ", buf(i, len), val)
+    i = i + len
+  end
+
+  if bit.band(d_flags, 0x02) == 0x02 then
+    val, len = zint_decode(buf(i, -1))
+    tree:add("Source SN: ", buf(i, len), val)
+    i = i + len
+  end
+
+  if bit.band(d_flags, 0x04) == 0x04 then
+    val, len = zbytes_decode(buf(i, -1))
+    tree:add("First Router ID: ", buf(i, len), val)
+    i = i + len
+  end
+ 
+  if bit.band(d_flags, 0x08) == 0x08 then
+    val, len = zint_decode(buf(i, -1))
+    tree:add("First Router SN: ", buf(i, len), val)
+    i = i + len
+  end
+
+  if bit.band(d_flags, 0x10) == 0x10 then
+    len = parse_timestamp(buf(i, -1))
+    i = i + len
+  end
+
+  if bit.band(d_flags, 0x20) == 0x20 then
+    val, len = zint_decode(buf(i, -1))
+    tree:add("Kind: ", buf(i, len), val)
+    i = i + len
+  end
+
+  if bit.band(d_flags, 0x40) == 0x40 then
+    val, len = zint_decode(buf(i, -1))
+    tree:add("Encoding: ", buf(i, len), val)
+    i = i + len
+  end
+
+  return i
+end
+
+function parse_data(tree, buf)
+  local i = 0
+
+  local len = parse_reskey(tree, buf)
+  i = i + len
+
+  if bit.band(h_flags, 0x02) == 0x02 then
+    len = parse_datainfo(tree, buf(i, -1))
+    i = i + len
+  end
+
+  val, len = zbytes_decode(buf(i, -1))
+  tree:add("Payload: ", buf(i, len), val:string())
+  i = i + len 
+    
+  return i
+end
+
 function parse_init(tree, buf)
   local i = 0
 
@@ -662,6 +798,7 @@ function decode_message(tree, buf)
   if whatami == ZENOH_WHATAMI.DECLARE then
     len = parse_declare(p_subtree, buf(i, -1))
   elseif whatami == ZENOH_WHATAMI.DATA then
+    len = parse_data(p_subtree, buf(i, -1))
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
   elseif whatami == ZENOH_WHATAMI.UNIT then
