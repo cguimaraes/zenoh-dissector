@@ -516,7 +516,7 @@ function parse_frame(tree, buf, f_size)
   repeat
     len = decode_message(tree, buf(i, -1))
     i = i + len
-  until i == f_size
+  until i == f_size - 1
 
   return i
 end
@@ -571,7 +571,7 @@ function decode_message(tree, buf)
   elseif whatami == SESSION_WHATAMI.PING_PONG then
     len = parse_pingpong(p_subtree, buf(i, -1))
   elseif whatami == SESSION_WHATAMI.FRAME then
-    len = parse_frame(p_subtree, buf(i, -1), f_size)
+    len = parse_frame(p_subtree, buf(i, -1), buf:len())
   end
   i = i + len
 
