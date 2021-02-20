@@ -356,6 +356,7 @@ function parse_header_flags(tree, buf, whatami)
   if whatami == ZENOH_WHATAMI.DECLARE then
     tree:add(proto_zenoh.fields.declare_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == ZENOH_WHATAMI.DATA then
+    tree:add(proto_zenoh.fields.pingpong_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
   elseif whatami == ZENOH_WHATAMI.UNIT then
