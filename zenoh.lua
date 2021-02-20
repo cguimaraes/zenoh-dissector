@@ -123,7 +123,7 @@ end
 function get_declare_resource_flag_description(flag)
     local f_description = "Unknown"
 
-    if flag == 0x04 then f_description     = "CloseLink" -- K
+    if flag == 0x04 then f_description     = "ResourceKey" -- K
     elseif flag == 0x02 then f_description = "Unused" -- X
     elseif flag == 0x01 then f_description = "Unused" -- X
     end
