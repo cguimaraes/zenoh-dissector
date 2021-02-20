@@ -508,7 +508,7 @@ function parse_declare_resource(tree, buf)
   tree:add("Resource ID: ", val)
   i = i + len
 
-  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
 
   return i
@@ -520,7 +520,7 @@ function parse_declare_publisher(tree, buf)
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.PUBLISHER)
   i = i + 1
 
-  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
 
   return i
@@ -531,7 +531,7 @@ function parse_declare_subscriber(tree, buf)
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.SUBSCRIBER)
 
-  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
 
   if bit.band(h_flags, 0x02) == 0x02 then
@@ -563,7 +563,7 @@ function parse_declare_queryable(tree, buf)
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.QUERYABLE)
 
-  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
 
   return i
