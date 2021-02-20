@@ -124,8 +124,41 @@ function get_declare_resource_flag_description(flag)
     local f_description = "Unknown"
 
     if flag == 0x04 then f_description     = "ResourceKey" -- K
-    elseif flag == 0x02 then f_description = "Unused" -- X
-    elseif flag == 0x01 then f_description = "Unused" -- X
+    elseif flag == 0x02 then f_description = "Unused"      -- X
+    elseif flag == 0x01 then f_description = "Unused"      -- X
+    end
+
+    return f_description
+end
+
+function get_declare_publisher_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "ResourceKey" -- K
+    elseif flag == 0x02 then f_description = "Unused"      -- X
+    elseif flag == 0x01 then f_description = "Unused"      -- X
+    end
+
+    return f_description
+end
+
+function get_declare_subscriber_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "ResourceKey" -- K
+    elseif flag == 0x02 then f_description = "SubMode"     -- S
+    elseif flag == 0x01 then f_description = "Reliable"    -- R
+    end
+
+    return f_description
+end
+
+function get_declare_queryable_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "ResourceKey" -- K
+    elseif flag == 0x02 then f_description = "Unused"      -- X
+    elseif flag == 0x01 then f_description = "Unused"      -- X
     end
 
     return f_description
@@ -356,8 +389,11 @@ function parse_declare_flags(tree, buf, did)
     if did == DECLARATION_ID.RESOURCE then
       flag = get_declare_resource_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.PUBLISHER then
+      flag = get_declare_publisher_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.SUBSCRIBER then
+      flag = get_declare_subscriber_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.QUERYABLE then
+      flag = get_declare_queryable_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.FORGET_RESOURCE then
     elseif did == DECLARATION_ID.FORGET_PUBLISHER then
     elseif did == DECLARATION_ID.FORGET_SUBSCRIBER then
@@ -372,10 +408,14 @@ function parse_declare_flags(tree, buf, did)
   if did == DECLARATION_ID.RESOURCE then
     tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   elseif did == DECLARATION_ID.PUBLISHER then
+    tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   elseif did == DECLARATION_ID.SUBSCRIBER then
+    tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   elseif did == DECLARATION_ID.QUERYABLE then
+    tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   elseif did == DECLARATION_ID.FORGET_RESOURCE then
   elseif did == DECLARATION_ID.FORGET_PUBLISHER then
+    tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   elseif did == DECLARATION_ID.FORGET_SUBSCRIBER then
   elseif did == DECLARATION_ID.FORGET_QUERYABLE then
   end
@@ -409,6 +449,61 @@ function parse_declare_resource(tree, buf)
   return i
 end
 
+function parse_declare_publisher(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.PUBLISHER)
+  i = i + 1
+
+  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  i = i + len
+
+  return i
+end
+
+function parse_declare_subscriber(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.SUBSCRIBER)
+
+  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  i = i + len
+
+  if bit.band(h_flags, 0x02) == 0x02 then
+    local submode = buf(i, 1):uint()
+    tree:add("SubMode: " .. bit.band(submode, 0x00):uint())
+    is_p = (bit.band(submode, 0x80) == 0x80)
+    i = i + 1
+
+    if is_p == true then
+      val, len = zint_decode(buf(i, -1))
+      tree:add("Period Origin: ", buf(i, len), val)
+      i = i + len
+
+      val, len = zint_decode(buf(i, -1))
+      tree:add("Period Period: ", buf(i, len), val)
+      i = i + len
+
+      val, len = zint_decode(buf(i, -1))
+      tree:add("Period Duration: ", buf(i, len), val)
+      i = i + len
+    end
+  end
+
+  return i
+end
+
+function parse_declare_queryable(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.QUERYABLE)
+
+  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  i = i + len
+
+  return i
+end
+
 function parse_declare(tree, buf)
   local i = 0
 
@@ -426,8 +521,20 @@ function parse_declare(tree, buf)
       i = i + len
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.PUBLISHER then
+      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Publisher Declaration")
+      len = parse_declare_publisher(a_subtree, buf(i, -1))
+      i = i + len
+
     elseif bit.band(did, 0x1F) == DECLARATION_ID.SUBSCRIBER then
+      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Subscriber Declaration")
+      len = parse_declare_subscriber(a_subtree, buf(i, -1))
+      i = i + len
+
     elseif bit.band(did, 0x1F) == DECLARATION_ID.QUERYABLE then
+      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Queryable Declaration")
+      len = parse_declare_queryable(a_subtree, buf(i, -1))
+      i = i + len
+
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_RESOURCE then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_PUBLISHER then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_SUBSCRIBER then
