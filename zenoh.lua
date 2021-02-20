@@ -503,6 +503,7 @@ function parse_declare_resource(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.RESOURCE)
+  i = i + 1
 
   local val, len = zint_decode(buf(i, -1))
   tree:add("Resource ID: ", val)
@@ -518,6 +519,7 @@ function parse_declare_publisher(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.PUBLISHER)
+  i = i + 1
 
   local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
@@ -529,6 +531,7 @@ function parse_declare_subscriber(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.SUBSCRIBER)
+  i = i + 1
 
   local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
@@ -561,6 +564,7 @@ function parse_declare_queryable(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.QUERYABLE)
+  i = i + 1
 
   local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
@@ -572,6 +576,7 @@ function parse_forget_publisher(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.FORGET_PUBLISHER)
+  i = i + 1
 
   local val, len = zint_decode(buf(i, -1))
   tree:add("Resource ID: ", val)
@@ -589,7 +594,6 @@ function parse_declare(tree, buf)
 
   while a_size > 0 do
     local did = bit.band(buf(i, 1):uint(), 0x1F)
-    i = i + 1
 
     if bit.band(did, 0X1F) == DECLARATION_ID.RESOURCE then
       local a_subtree = tree:add("Declaration [" .. a_size .. "] = Resource Declaration")
