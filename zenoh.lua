@@ -211,7 +211,7 @@ function get_data_internal_flag_description(flag)
   elseif flag == 0x40 then f_description = "Encoding"        -- G
   elseif flag == 0x20 then f_description = "Kind"            -- F
   elseif flag == 0x10 then f_description = "Timestamp"       -- E
-  elseif flag == 0x08 then f_description = "First Router ID" -- D
+  elseif flag == 0x08 then f_description = "First Router SN" -- D
   elseif flag == 0x04 then f_description = "First Router ID" -- C
   elseif flag == 0x02 then f_description = "Source SN"       -- B
   elseif flag == 0x01 then f_description = "Source ID"       -- A
@@ -507,7 +507,7 @@ end
 function parse_data(tree, buf)
   local i = 0
 
-  local len = parse_reskey(tree, buf)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
   i = i + len
 
   if bit.band(h_flags, 0x02) == 0x02 then
@@ -533,12 +533,12 @@ function parse_data_flags(tree, buf)
   for i,v in ipairs(f_bitwise) do
     flag = get_data_internal_flag_description(bit.band(flags, v))
 
-    if bit.band(d_flags, v) == v then
+    if bit.band(flags, v) == v then
       f_str = f_str .. flag .. ", "
     end
   end
 
-  tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
+  tree:add("Flags", flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   -- TODO: add bitwise flag substree
 
   return flags, i
@@ -575,7 +575,7 @@ function parse_datainfo(tree, buf)
   end
 
   if bit.band(d_flags, 0x10) == 0x10 then
-    len = parse_timestamp(buf(i, -1))
+    len = parse_timestamp(tree, buf(i, -1))
     i = i + len
   end
 
@@ -597,7 +597,7 @@ end
 function parse_timestamp(tree, buf)
   local i = 0
 
-  subtree = tree:add("Timestamp")
+  local subtree = tree:add("Timestamp")
 
   val, len = parse_zint(buf(i, -1))
   subtree:add("Time: ", buf(i, len), val)
@@ -759,7 +759,7 @@ function parse_header_flags(tree, buf, whatami)
   if whatami == ZENOH_WHATAMI.DECLARE then
     tree:add(proto_zenoh.fields.declare_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == ZENOH_WHATAMI.DATA then
-    tree:add(proto_zenoh.fields.pingpong_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.data_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
   elseif whatami == ZENOH_WHATAMI.UNIT then
