@@ -267,7 +267,7 @@ function parse_reskey(tree, buf, is_k)
 end
 
 function parse_whatami(tree, buf)
-  local whatami = buf(0, 1):uint()
+  local whatami = bit.band(buf(0, 1):uint(), 0x1F)
 
   if whatami == ZENOH_WHATAMI.DECLARE then
     tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Declare)")
@@ -284,35 +284,35 @@ function parse_whatami(tree, buf)
   elseif whatami == ZENOH_WHATAMI.UNIT then
     tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Unit)")
     return ZENOH_WHATAMI.UNIT
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.SCOUT then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Scout)")
+  elseif whatami == SESSION_WHATAMI.SCOUT then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Scout)")
     return SESSION_WHATAMI.SCOUT
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.HELLO then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Hello)")
+  elseif whatami == SESSION_WHATAMI.HELLO then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Hello)")
     return SESSION_WHATAMI.HELLO
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.INIT then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Init)")
+  elseif whatami == SESSION_WHATAMI.INIT then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Init)")
     return SESSION_WHATAMI.INIT
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.OPEN then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Open)")
+  elseif whatami == SESSION_WHATAMI.OPEN then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Open)")
     return SESSION_WHATAMI.OPEN
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.CLOSE then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Close)")
+  elseif whatami == SESSION_WHATAMI.CLOSE then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Close)")
     return SESSION_WHATAMI.CLOSE
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.SYNC then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Sync)")
+  elseif whatami == SESSION_WHATAMI.SYNC then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Sync)")
     return SESSION_WHATAMI.SYNC
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.ACK_NACK then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(ACK-NACK)")
+  elseif whatami == SESSION_WHATAMI.ACK_NACK then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(ACK-NACK)")
     return SESSION_WHATAMI.ACK_NACK
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.KEEP_ALIVE then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Keep Alive)")
+  elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Keep Alive)")
     return SESSION_WHATAMI.KEEP_ALIVE
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.PING_PONG then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Ping Pong)")
+  elseif whatami == SESSION_WHATAMI.PING_PONG then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Ping Pong)")
     return SESSION_WHATAMI.PING_PONG
-  elseif bit.band(whatami, 0x1F) == SESSION_WHATAMI.FRAME then
-    tree:add(proto_zenoh.fields.header_whatami, bit.band(whatami, 0x1F), base.u8, "(Frame)")
+  elseif whatami == SESSION_WHATAMI.FRAME then
+    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Frame)")
     return SESSION_WHATAMI.FRAME
   end
 
