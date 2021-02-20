@@ -534,7 +534,7 @@ function decode_message(tree, buf)
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
   elseif whatami == SESSION_WHATAMI.PING_PONG then
   elseif whatami == SESSION_WHATAMI.FRAME then
-    len = parse_frame(p_subtree, buf(i, -i), f_size)
+    len = parse_frame(p_subtree, buf(i, -1), f_size)
   end
   i = i + len
 
