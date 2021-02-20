@@ -164,6 +164,17 @@ function get_declare_queryable_flag_description(flag)
     return f_description
 end
 
+function get_forget_publisher_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description     = "Unused" -- X
+    elseif flag == 0x02 then f_description = "Unused" -- X
+    elseif flag == 0x01 then f_description = "Unused" -- X
+    end
+
+    return f_description
+end
+
 function get_data_flag_description(flag)
     local f_description = "Unknown"
 
@@ -449,6 +460,7 @@ function parse_declare_flags(tree, buf, did)
       flag = get_declare_queryable_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.FORGET_RESOURCE then
     elseif did == DECLARATION_ID.FORGET_PUBLISHER then
+      flag = get_forget_publisher_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.FORGET_SUBSCRIBER then
     elseif did == DECLARATION_ID.FORGET_QUERYABLE then
     end
@@ -551,7 +563,19 @@ function parse_declare_queryable(tree, buf)
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.QUERYABLE)
 
-  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  i = i + len
+
+  return i
+end
+
+function parse_forget_publisher(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.FORGET_PUBLISHER)
+
+  local val, len = zint_decode(buf(i, -1))
+  tree:add("Resource ID: ", val)
   i = i + len
 
   return i
@@ -590,6 +614,10 @@ function parse_declare(tree, buf)
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_RESOURCE then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_PUBLISHER then
+      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Forget Publisher")
+      len = parse_forget_publisher(a_subtree, buf(i, -1))
+      i = i + len
+
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_SUBSCRIBER then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_QUERYABLE then
     end
