@@ -43,20 +43,20 @@ function zbytes_decode(buf)
   local i = 0
   local val = 0
 
-  b_val, b_len = zint_decode(buf)
-  i = i + b_len + b_val
+  val, len = zint_decode(buf(i, -1))
+  i = i + len + val
 
-  return buf(b_len, b_val), i
+  return buf(i - val, val), i
 end
 
 function zstring_decode(buf)
   local i = 0
   local val = 0
 
-  b_val, b_len = zint_decode(buf)
-  i = i + b_len + b_val
+  b_val, len = zbytes_decode(buf(i, -1))
+  i = i + len
 
-  return string.fromhex(buf(b_len, b_val)), i
+  return b_val:string(), i
 end
 
 
