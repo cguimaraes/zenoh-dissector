@@ -51,6 +51,10 @@ proto_zenoh.fields.close_flags  = ProtoField.uint8("zenoh.close.flags", "Flags",
 proto_zenoh.fields.close_peerid = ProtoField.bytes("zenoh.close.peerid", "Peer ID", base.NONE)
 proto_zenoh.fields.close_reason = ProtoField.uint8("zenoh.close.reason", "Reason", base.u8)
 
+-- Keep Alive Message Specific
+proto_zenoh.fields.keepalive_flags  = ProtoField.uint8("zenoh.keepalive.flags", "Flags", base.HEX)
+proto_zenoh.fields.keepalive_peerid = ProtoField.bytes("zenoh.keepalive.peerid", "Peer ID", base.NONE)
+
 -- Ping Pong Message Specific
 proto_zenoh.fields.pingpong_flags = ProtoField.uint8 ("zenoh.pingpong.flags", "Flags", base.HEX)
 proto_zenoh.fields.pingpong_hash  = ProtoField.uint8("zenoh.pingpong.hash", "Hash", base.HEX)
@@ -259,6 +263,18 @@ function get_pingpong_flag_description(flag)
   if flag == 0x04 then f_description     = "Unused"     -- X
   elseif flag == 0x02 then f_description = "Unused"     -- X
   elseif flag == 0x01 then f_description = "PingOrPong" -- P
+  end
+
+  return f_description
+end
+
+-- Keep Alive flags
+function get_keepalive_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "Unused" -- X
+  elseif flag == 0x02 then f_description = "Unused" -- X
+  elseif flag == 0x01 then f_description = "PeerID" -- I
   end
 
   return f_description
@@ -666,6 +682,18 @@ function parse_close(tree, buf)
   return i
 end
 
+function parse_keepalive(tree, buf)
+  local i = 0
+
+  if bit.band(h_flags, 0x01) == 0x01 then
+    val, len = parse_zbytes(buf(i, -1))
+    tree:add(proto_zenoh.fields.keepalive_peerid, val)
+    i = i + len
+  end
+
+  return i
+end
+
 function parse_pingpong(tree, buf)
   local i = 0
 
@@ -716,6 +744,7 @@ function parse_header_flags(tree, buf, whatami)
     elseif whatami == SESSION_WHATAMI.SYNC then
     elseif whatami == SESSION_WHATAMI.ACK_NACK then
     elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+      flag = get_keepalive_flag_description(bit.band(h_flags, v))
     elseif whatami == SESSION_WHATAMI.PING_PONG then
       flag = get_pingpong_flag_description(bit.band(h_flags, v))
     elseif whatami == SESSION_WHATAMI.FRAME then
@@ -746,6 +775,7 @@ function parse_header_flags(tree, buf, whatami)
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+    tree:add(proto_zenoh.fields.keepalive_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.PING_PONG then
     tree:add(proto_zenoh.fields.pingpong_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.FRAME then
@@ -847,6 +877,7 @@ function decode_message(tree, buf)
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+    len = parse_keepalive(p_subtree, buf(i, -1))
   elseif whatami == SESSION_WHATAMI.PING_PONG then
     len = parse_pingpong(p_subtree, buf(i, -1))
   elseif whatami == SESSION_WHATAMI.FRAME then
