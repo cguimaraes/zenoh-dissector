@@ -520,7 +520,7 @@ function parse_declare_publisher(tree, buf)
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.PUBLISHER)
   i = i + 1
 
-  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
   i = i + len
 
   return i
@@ -531,17 +531,17 @@ function parse_declare_subscriber(tree, buf)
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.SUBSCRIBER)
 
-  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
   i = i + len
 
   if bit.band(h_flags, 0x02) == 0x02 then
     local submode = buf(i, 1):uint()
     tree:add("SubMode: " .. bit.band(submode, 0x00):uint())
-    is_p = (bit.band(submode, 0x80) == 0x80)
+    local is_p = (bit.band(submode, 0x80) == 0x80)
     i = i + 1
 
     if is_p == true then
-      val, len = zint_decode(buf(i, -1))
+      local val, len = zint_decode(buf(i, -1))
       tree:add("Period Origin: ", buf(i, len), val)
       i = i + len
 
