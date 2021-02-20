@@ -518,7 +518,6 @@ function parse_declare_publisher(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.PUBLISHER)
-  i = i + 1
 
   local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
