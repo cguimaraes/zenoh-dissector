@@ -855,6 +855,12 @@ function decode_message(tree, buf)
   local whatami, len = parse_header(h_subtree, buf(i, 1))
   i = i + len
 
+  -- NO PAYLOAD
+  debug("i: " .. i .. " BufLen: " .. buf:len())
+  if i == buf:len() then
+    return len
+  end
+
   -- PAYLOAD
   local p_subtree = tree:add(proto_zenoh, buf(i, -1), "Payload")
 
