@@ -224,6 +224,17 @@ function get_open_flag_description(flag)
     return f_description
 end
 
+function get_close_flag_description(flag)
+    local f_description = "Unknown"
+
+    if flag == 0x04 then f_description = "Unused"        -- X
+    elseif flag == 0x02 then f_description = "CloseLink" -- K
+    elseif flag == 0x01 then f_description = "PeerID"    -- I
+    end
+
+    return f_description
+end
+
 function get_pingpong_flag_description(flag)
     local f_description = "Unknown"
 
@@ -277,6 +288,11 @@ proto_zenoh.fields.open_flags = ProtoField.uint8 ("zenoh.open.flags", "Flags", b
 proto_zenoh.fields.open_lease = ProtoField.uint8("zenoh.open.lease", "Lease Period", base.u8)
 proto_zenoh.fields.open_initialsn = ProtoField.uint8("zenoh.open.initial_sn", "Initial SN", base.u8)
 proto_zenoh.fields.open_cookie = ProtoField.bytes("zenoh.open.cookie", "Cookie", base.NONE)
+
+-- Close Message Specific
+proto_zenoh.fields.close_flags = ProtoField.uint8("zenoh.close.flags", "Flags", base.HEX)
+proto_zenoh.fields.close_peerid = ProtoField.bytes("zenoh.close.peerid", "Peer ID", base.NONE)
+proto_zenoh.fields.close_reason = ProtoField.uint8("zenoh.close.reason", "Reason", base.u8)
 
 -- Ping Pong Message Specific
 proto_zenoh.fields.pingpong_flags = ProtoField.uint8 ("zenoh.pingpong.flags", "Flags", base.HEX)
@@ -381,6 +397,7 @@ function parse_header_flags(tree, buf, whatami)
     elseif whatami == SESSION_WHATAMI.OPEN then
       flag = get_open_flag_description(bit.band(h_flags, v))
     elseif whatami == SESSION_WHATAMI.CLOSE then
+      flag = get_close_flag_description(bit.band(h_flags, v))
     elseif whatami == SESSION_WHATAMI.SYNC then
     elseif whatami == SESSION_WHATAMI.ACK_NACK then
     elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
@@ -410,6 +427,7 @@ function parse_header_flags(tree, buf, whatami)
   elseif whatami == SESSION_WHATAMI.OPEN then
     tree:add(proto_zenoh.fields.open_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.CLOSE then
+    tree:add(proto_zenoh.fields.close_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
@@ -771,6 +789,22 @@ function parse_open(tree, buf)
   return i
 end
 
+function parse_close(tree, buf)
+  local i = 0
+
+  if bit.band(h_flags, 0x01) == 0x01 then
+    val, len = zbytes_decode(buf(i, -1))
+    tree:add(proto_zenoh.fields.close_peerid, val)
+    i = i + len
+  end
+
+  val, len = zint_decode(buf(i, -1))
+  tree:add(proto_zenoh.fields.close_reason, val)
+  i = i + len
+
+  return i
+end
+
 function parse_pingpong(tree, buf)
   local i = 0
 
@@ -846,6 +880,7 @@ function decode_message(tree, buf)
   elseif whatami == SESSION_WHATAMI.OPEN then
     len = parse_open(p_subtree, buf(i, -1))
   elseif whatami == SESSION_WHATAMI.CLOSE then
+    len = parse_close(p_subtree, buf(i, -1))
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
