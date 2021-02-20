@@ -800,16 +800,21 @@ function dissector(buf, pinfo, root, is_tcp)
   if buf:len() < 2 and is_tcp == true then return
   elseif buf:len() == 0 and (is_tcp == false or is_frame == true) then return end
 
-  local f_size = buf():len()
-  if is_tcp == true then
-    f_size = buf(i, 2):le_uint()
-    i = i + 2
-  end
-
   pinfo.cols.protocol = proto_zenoh.name
-  tree = root:add(proto_zenoh, buf())
 
-  decode_message(tree, buf(i, f_size))
+  while i < buf:len() - 1 do
+    local f_size = buf():len()
+    if is_tcp == true then
+      f_size = buf(i, 2):le_uint()
+      i = i + 2
+    end
+    debug("Fsize: " .. f_size)
+
+    tree = root:add(proto_zenoh, buf())
+    len = decode_message(tree, buf(i, f_size))
+    i = i + len
+    debug("i: " .. i .. " buf: " .. buf:len())
+  end
 end
 
 function decode_message(tree, buf)
