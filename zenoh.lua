@@ -320,7 +320,7 @@ function parse_declare_flags(tree, buf, did)
   local f_str = ""
   for i,v in ipairs(f_bitwise) do
     if did == DECLARATION_ID.RESOURCE then
-      flag = get_declare_flag_description(bit.band(h_flags, v))
+      flag = get_declare_resource_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.PUBLISHER then
     elseif did == DECLARATION_ID.SUBSCRIBER then
     elseif did == DECLARATION_ID.QUERYABLE then
@@ -330,7 +330,7 @@ function parse_declare_flags(tree, buf, did)
     elseif did == DECLARATION_ID.FORGET_QUERYABLE then
     end
 
-    if bit.band(h_flags, v) == v then
+    if bit.band(d_flags, v) == v then
       f_str = f_str .. flag .. ", "
     end
   end
