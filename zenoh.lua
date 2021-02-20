@@ -493,11 +493,10 @@ function dissector(buf, pinfo, root, is_tcp)
   if buf:len() < 2 and is_tcp == true then return
   elseif buf:len() == 0 and (is_tcp == false or is_frame == true) then return end
 
+  local f_size = buf():len()
   if is_tcp == true then
     f_size = buf(i, 2):le_uint()
     i = i + 2
-  else
-    f_size = buf():len()
   end
 
   pinfo.cols.protocol = proto_zenoh.name
