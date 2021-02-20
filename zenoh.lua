@@ -216,6 +216,23 @@ proto_zenoh.fields.frame_payload = ProtoField.uint8("zenoh.frame.payload", "Payl
 
 ------ DISSECTOR HELPERS ------
 
+function parse_reskey(tree, buf, is_k)
+  local i = 0
+
+  subtree = tree:add("ResKey: ")
+  val, len = zint_decode(buf(i, -1))
+  subtree:add("Resource ID: ", buf(i, len), val)
+  i = i + len
+
+  if is_k == false then
+    val, len = zstring_decode(buf(i, -1))
+    subtree:add("Suffix: ", val)
+    i = i + len
+  end
+
+  return i
+end
+
 function parse_whatami(tree, buf)
   local whatami = buf(0, 1):uint()
 
@@ -381,21 +398,13 @@ function parse_declare_resource(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.RESOURCE)
-  i = i + 1
 
   local val, len = zint_decode(buf(i, -1))
-  tree:add("Resource ID: ", buf(i, len), val)
+  tree:add("Resource ID: ", val)
   i = i + len
 
-  val, len = zint_decode(buf(i, -1))
-  tree:add("ResKey Resource ID: ", buf(i, len), val)
+  len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
   i = i + len
-
-  if bit.band(h_flags, 0x04) == 0x04 then
-    val, len = zstring_decode(buf(i, -1))
-    tree:add("ResKey Suffix: ", val)
-    i = i + len
-  end
 
   return i
 end
@@ -409,10 +418,10 @@ function parse_declare(tree, buf)
 
   while a_size > 0 do
     local did = bit.band(buf(i, 1):uint(), 0x1F)
+    i = i + 1
 
     if bit.band(did, 0X1F) == DECLARATION_ID.RESOURCE then
       local a_subtree = tree:add("Declaration [" .. a_size .. "] = Resource Declaration")
-
       len = parse_declare_resource(a_subtree, buf(i, -1))
       i = i + len
 
