@@ -393,7 +393,7 @@ function parse_declare(tree, buf)
   while a_size > 0 do
     local did = bit.band(buf(i, 1):uint(), 0x1F)
 
-    if did == DECLARATION_ID.RESOURCE then
+    if bit.band(did, 0X1F) == DECLARATION_ID.RESOURCE then
       local a_subtree = tree:add("Declaration [" .. a_size .. "] = Resource Declaration")
 
       len = parse_declare_resource(a_subtree, buf(i, -1))
