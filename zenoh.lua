@@ -56,11 +56,11 @@ proto_zenoh.fields.keepalive_flags  = ProtoField.uint8("zenoh.keepalive.flags", 
 proto_zenoh.fields.keepalive_peerid = ProtoField.bytes("zenoh.keepalive.peerid", "Peer ID", base.NONE)
 
 -- Ping Pong Message Specific
-proto_zenoh.fields.pingpong_flags = ProtoField.uint8 ("zenoh.pingpong.flags", "Flags", base.HEX)
+proto_zenoh.fields.pingpong_flags = ProtoField.uint8("zenoh.pingpong.flags", "Flags", base.HEX)
 proto_zenoh.fields.pingpong_hash  = ProtoField.uint8("zenoh.pingpong.hash", "Hash", base.HEX)
 
 -- Frame Message Specific
-proto_zenoh.fields.frame_flags   = ProtoField.uint8 ("zenoh.frame.flags", "Flags", base.HEX)
+proto_zenoh.fields.frame_flags   = ProtoField.uint8("zenoh.frame.flags", "Flags", base.HEX)
 proto_zenoh.fields.frame_sn      = ProtoField.uint8("zenoh.frame.sn", "SN", base.u8)
 proto_zenoh.fields.frame_payload = ProtoField.uint8("zenoh.frame.payload", "Payload", base.u8)
 
@@ -330,12 +330,12 @@ function parse_reskey(tree, buf, is_k)
 
   subtree = tree:add("ResKey: ")
   val, len = parse_zint(buf(i, -1))
-  subtree:add("Resource ID: ", buf(i, len), val)
+  subtree:add(buf(i, len), "Resource ID: ", val)
   i = i + len
 
   if is_k == false then
     val, len = parse_zstring(buf(i, -1))
-    subtree:add("Suffix: ", val)
+    subtree:add(buf(i, len), "Suffix: ", val)
     i = i + len
   end
 
@@ -346,35 +346,35 @@ function parse_declare(tree, buf)
   local i = 0
 
   local a_size, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.declare_num_of_declaration, a_size)
+  tree:add(proto_zenoh.fields.declare_num_of_declaration, buf(i, len), a_size)
   i = i + len
 
   while a_size > 0 do
     local did = bit.band(buf(i, 1):uint(), 0x1F)
 
     if bit.band(did, 0X1F) == DECLARATION_ID.RESOURCE then
-      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Resource Declaration")
+      local a_subtree = tree:add(buf(i, 1), "Declaration [" .. a_size .. "] = Resource Declaration")
       len = parse_declare_resource(a_subtree, buf(i, -1))
       i = i + len
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.PUBLISHER then
-      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Publisher Declaration")
+      local a_subtree = tree:add(buf(i, 1),"Declaration [" .. a_size .. "] = Publisher Declaration")
       len = parse_declare_publisher(a_subtree, buf(i, -1))
       i = i + len
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.SUBSCRIBER then
-      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Subscriber Declaration")
+      local a_subtree = tree:add(buf(i, 1),"Declaration [" .. a_size .. "] = Subscriber Declaration")
       len = parse_declare_subscriber(a_subtree, buf(i, -1))
       i = i + len
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.QUERYABLE then
-      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Queryable Declaration")
+      local a_subtree = tree:add(buf(i, 1),"Declaration [" .. a_size .. "] = Queryable Declaration")
       len = parse_declare_queryable(a_subtree, buf(i, -1))
       i = i + len
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_RESOURCE then
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_PUBLISHER then
-      local a_subtree = tree:add("Declaration [" .. a_size .. "] = Forget Publisher")
+      local a_subtree = tree:add(buf(i, 1), "Declaration [" .. a_size .. "] = Forget Publisher")
       len = parse_forget_publisher(a_subtree, buf(i, -1))
       i = i + len
 
@@ -414,7 +414,7 @@ function parse_declare_flags(tree, buf, did)
     end
   end
 
-  tree:add("Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
+  tree:add(buf(0, 1), "Flags", d_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   -- TODO: add bitwise flag substree
 end
 
@@ -425,7 +425,7 @@ function parse_declare_resource(tree, buf)
   i = i + 1
 
   local val, len = parse_zint(buf(i, -1))
-  tree:add("Resource ID: ", val)
+  tree:add(buf(i, len), "Resource ID: ", val)
   i = i + len
 
   len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
@@ -457,21 +457,21 @@ function parse_declare_subscriber(tree, buf)
 
   if bit.band(h_flags, 0x02) == 0x02 then
     local submode = buf(i, 1):uint()
-    tree:add("SubMode: " .. bit.band(submode, 0x00):uint())
+    tree:add(buf(i, 1), "SubMode: " .. bit.band(submode, 0x00):uint())
     local is_p = (bit.band(submode, 0x80) == 0x80)
     i = i + 1
 
     if is_p == true then
       local val, len = parse_zint(buf(i, -1))
-      tree:add("Period Origin: ", buf(i, len), val)
+      tree:add(buf(i, len), "Period Origin: ", val)
       i = i + len
 
       val, len = parse_zint(buf(i, -1))
-      tree:add("Period Period: ", buf(i, len), val)
+      tree:add(buf(i, len), "Period Period: ", val)
       i = i + len
 
       val, len = parse_zint(buf(i, -1))
-      tree:add("Period Duration: ", buf(i, len), val)
+      tree:add(buf(i, len), "Period Duration: ", val)
       i = i + len
     end
   end
@@ -498,7 +498,7 @@ function parse_forget_publisher(tree, buf)
   i = i + 1
 
   local val, len = parse_zint(buf(i, -1))
-  tree:add("Resource ID: ", val)
+  tree:add(buf(i, len), "Resource ID: ", val)
   i = i + len
 
   return i
@@ -516,7 +516,7 @@ function parse_data(tree, buf)
   end
 
   val, len = parse_zbytes(buf(i, -1))
-  tree:add("Payload: ", buf(i, len), val:string())
+  tree:add(buf(i, len), "Payload: ", val:string())
   i = i + len
 
   return i
@@ -538,7 +538,7 @@ function parse_data_flags(tree, buf)
     end
   end
 
-  tree:add("Flags", flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
+  tree:add(buf(i, len), "Flags", flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
   -- TODO: add bitwise flag substree
 
   return flags, i
@@ -552,25 +552,25 @@ function parse_datainfo(tree, buf)
 
   if bit.band(d_flags, 0x01) == 0x01 then
     val, len = parse_zbytes(buf(i, -1))
-    tree:add("Source ID: ", buf(i, len), val)
+    tree:add(buf(i, len), "Source ID: ", val)
     i = i + len
   end
 
   if bit.band(d_flags, 0x02) == 0x02 then
     val, len = parse_zint(buf(i, -1))
-    tree:add("Source SN: ", buf(i, len), val)
+    tree:add(buf(i, len), "Source SN: ", val)
     i = i + len
   end
 
   if bit.band(d_flags, 0x04) == 0x04 then
     val, len = parse_zbytes(buf(i, -1))
-    tree:add("First Router ID: ", buf(i, len), val)
+    tree:add(buf(i, len), "First Router ID: ", val)
     i = i + len
   end
 
   if bit.band(d_flags, 0x08) == 0x08 then
     val, len = parse_zint(buf(i, -1))
-    tree:add("First Router SN: ", buf(i, len), val)
+    tree:add(buf(i, len), "First Router SN: ", val)
     i = i + len
   end
 
@@ -581,13 +581,13 @@ function parse_datainfo(tree, buf)
 
   if bit.band(d_flags, 0x20) == 0x20 then
     val, len = parse_zint(buf(i, -1))
-    tree:add("Kind: ", buf(i, len), val)
+    tree:add(buf(i, len), "Kind: ", val)
     i = i + len
   end
 
   if bit.band(d_flags, 0x40) == 0x40 then
     val, len = parse_zint(buf(i, -1))
-    tree:add("Encoding: ", buf(i, len), val)
+    tree:add(buf(i, len), "Encoding: ", val)
     i = i + len
   end
 
@@ -600,11 +600,11 @@ function parse_timestamp(tree, buf)
   local subtree = tree:add("Timestamp")
 
   val, len = parse_zint(buf(i, -1))
-  subtree:add("Time: ", buf(i, len), val)
+  subtree:add(buf(i, len), "Time: ", val)
   i = i + len
 
   val, len = parse_zbytes(buf(i, -1))
-  subtree:add("ID: ", buf(i, len), val)
+  subtree:add(buf(i, len), "ID: ", val)
   i = i + len
 
   return i
@@ -614,13 +614,13 @@ function parse_init(tree, buf)
   local i = 0
 
   if bit.band(h_flags, 0x01) == 0x00 then
-    tree:add(proto_zenoh.fields.init_vmaj, bit.rshift(buf(i, 1):uint(), 4))
-    tree:add(proto_zenoh.fields.init_vmin, bit.band(buf(i, 1):uint(), 0xff))
+    tree:add(proto_zenoh.fields.init_vmaj, buf(i, 1), bit.rshift(buf(i, 1):uint(), 4))
+    tree:add(proto_zenoh.fields.init_vmin, buf(i, 1), bit.band(buf(i, 1):uint(), 0xff))
     i = i + 1
   end
 
   local val, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.init_whatami, val)
+  tree:add(proto_zenoh.fields.init_whatami, buf(i, len), val)
   i = i + len
 
   val, len = parse_zbytes(buf(i, -1))
@@ -629,7 +629,7 @@ function parse_init(tree, buf)
 
   if bit.band(h_flags, 0x02) == 0x02 then
     val, len = parse_zbytes(buf(i, -1))
-    tree:add(proto_zenoh.fields.init_snresolution, val)
+    tree:add(proto_zenoh.fields.init_snresolution, buf(i, len), val)
     i = i + len
   end
 
@@ -647,14 +647,14 @@ function parse_open(tree, buf)
 
   local val, len = parse_zint(buf, i)
   if bit.band(h_flags, 0x02) == 0x02 then
-    tree:add(proto_zenoh.fields.open_lease, val):append_text(" seconds")
+    tree:add(proto_zenoh.fields.open_lease, buf(i, len), val):append_text(" seconds")
   else
-    tree:add(proto_zenoh.fields.open_lease, val):append_text(" microseconds")
+    tree:add(proto_zenoh.fields.open_lease, buf(i, len), val):append_text(" microseconds")
   end
   i = i + len
 
   val, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.open_initialsn, val)
+  tree:add(proto_zenoh.fields.open_initialsn, buf(i, len), val)
   i = i + len
 
   if bit.band(h_flags, 0x01) == 0x00 then
@@ -676,7 +676,7 @@ function parse_close(tree, buf)
   end
 
   val, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.close_reason, val)
+  tree:add(proto_zenoh.fields.close_reason, buf(i, len), val)
   i = i + len
 
   return i
@@ -698,7 +698,7 @@ function parse_pingpong(tree, buf)
   local i = 0
 
   local val, len = parse_zint(buf, i)
-  tree:add(proto_zenoh.fields.pingpong_hash, val)
+  tree:add(proto_zenoh.fields.pingpong_hash, buf(i, len), val)
   i = i + len
 
   return i
@@ -708,7 +708,7 @@ function parse_frame(tree, buf, f_size)
   local i = 0
 
   local val, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.frame_sn, val)
+  tree:add(proto_zenoh.fields.frame_sn, buf(i, len), val)
   i = i + len
 
   repeat
@@ -757,9 +757,9 @@ function parse_header_flags(tree, buf, whatami)
   end
 
   if whatami == ZENOH_WHATAMI.DECLARE then
-    tree:add(proto_zenoh.fields.declare_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.declare_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == ZENOH_WHATAMI.DATA then
-    tree:add(proto_zenoh.fields.data_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.data_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == ZENOH_WHATAMI.QUERY then
   elseif whatami == ZENOH_WHATAMI.PULL then
   elseif whatami == ZENOH_WHATAMI.UNIT then
@@ -767,71 +767,71 @@ function parse_header_flags(tree, buf, whatami)
   elseif whatami == SESSION_WHATAMI.SCOUT then
   elseif whatami == SESSION_WHATAMI.HELLO then
   elseif whatami == SESSION_WHATAMI.INIT then
-    tree:add(proto_zenoh.fields.init_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.init_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.OPEN then
-    tree:add(proto_zenoh.fields.open_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.open_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.CLOSE then
-    tree:add(proto_zenoh.fields.close_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.close_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.SYNC then
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
-    tree:add(proto_zenoh.fields.keepalive_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.keepalive_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.PING_PONG then
-    tree:add(proto_zenoh.fields.pingpong_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.pingpong_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif whatami == SESSION_WHATAMI.FRAME then
-    tree:add(proto_zenoh.fields.frame_flags, h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+    tree:add(proto_zenoh.fields.frame_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   end
 
   -- TODO: add bitwise flag substree
 end
 
 function parse_whatami(tree, buf)
-  local whatami = bit.band(buf(0, 1):uint(), 0x1F)
+  local whatami = bit.band(buf(i, 1):uint(), 0x1F)
 
   if whatami == ZENOH_WHATAMI.DECLARE then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Declare)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Declare)")
     return ZENOH_WHATAMI.DECLARE
   elseif whatami == ZENOH_WHATAMI.DATA then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Data)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Data)")
     return ZENOH_WHATAMI.DATA
   elseif whatami == ZENOH_WHATAMI.QUERY then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Query)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Query)")
     return ZENOH_WHATAMI.QUERY
   elseif whatami == ZENOH_WHATAMI.PULL then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Pull)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Pull)")
     return ZENOH_WHATAMI.PULL
   elseif whatami == ZENOH_WHATAMI.UNIT then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Unit)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Unit)")
     return ZENOH_WHATAMI.UNIT
   elseif whatami == SESSION_WHATAMI.SCOUT then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Scout)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Scout)")
     return SESSION_WHATAMI.SCOUT
   elseif whatami == SESSION_WHATAMI.HELLO then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Hello)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Hello)")
     return SESSION_WHATAMI.HELLO
   elseif whatami == SESSION_WHATAMI.INIT then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Init)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Init)")
     return SESSION_WHATAMI.INIT
   elseif whatami == SESSION_WHATAMI.OPEN then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Open)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Open)")
     return SESSION_WHATAMI.OPEN
   elseif whatami == SESSION_WHATAMI.CLOSE then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Close)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Close)")
     return SESSION_WHATAMI.CLOSE
   elseif whatami == SESSION_WHATAMI.SYNC then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Sync)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Sync)")
     return SESSION_WHATAMI.SYNC
   elseif whatami == SESSION_WHATAMI.ACK_NACK then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(ACK-NACK)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(ACK-NACK)")
     return SESSION_WHATAMI.ACK_NACK
   elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Keep Alive)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Keep Alive)")
     return SESSION_WHATAMI.KEEP_ALIVE
   elseif whatami == SESSION_WHATAMI.PING_PONG then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Ping Pong)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Ping Pong)")
     return SESSION_WHATAMI.PING_PONG
   elseif whatami == SESSION_WHATAMI.FRAME then
-    tree:add(proto_zenoh.fields.header_whatami, whatami, base.u8, "(Frame)")
+    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Frame)")
     return SESSION_WHATAMI.FRAME
   end
 
