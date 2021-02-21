@@ -5,6 +5,14 @@ Zenoh protocol dissector for Wireshark
 
 - [ ] Zenoh Messages
   - [x] Declare
+      - [x] Resource Declaration
+      - [x] Publisher Declaration
+      - [x] Subscriber Declaration
+      - [x] Queryable Declaration
+      - [ ] Forget Resource
+      - [x] Forget Publisher
+      - [ ] Forget Subscriber
+      - [ ] Forget Queryable
   - [x] Data
   - [ ] Query
   - [ ] Pull
@@ -18,7 +26,7 @@ Zenoh protocol dissector for Wireshark
   - [x] Close
   - [ ] Sync
   - [ ] Ack Nack
-  - [ ] Keep Alive
+  - [x] Keep Alive
   - [x] Ping Pong
   - [x] Frame
 - [ ] Decorators Messages
@@ -29,6 +37,7 @@ Zenoh protocol dissector for Wireshark
   - [ ] Support Frame fragmentation
 - [x] Decode multiple Zenoh messages in a single TCP message
   - [ ] Handle Zenoh messages spit across TCP messages
+- [ ] Message filtering for framed messages
 - [ ] Implement unit tests
 - [ ] Extensive Testing
 
