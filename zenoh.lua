@@ -21,7 +21,7 @@ local proto_zenoh_tcp = Proto("zenoh-udp", "Zenoh Protocol over UDP")
 local proto_zenoh = Proto("zenoh", "Zenoh Protocol")
 
 -- Zenoh Header
-proto_zenoh.fields.header_whatami = ProtoField.uint8("zenoh.whatami", "WhatAmI (Type)", base.HEX)
+proto_zenoh.fields.header_msgid = ProtoField.uint8("zenoh.msgid", "MsgId", base.HEX)
 
 -- Declare Message Specific
 proto_zenoh.fields.declare_flags              = ProtoField.uint8("zenoh.declare.flags", "Flags", base.HEX)
@@ -35,7 +35,7 @@ proto_zenoh.fields.data_flags = ProtoField.uint8("zenoh.data.flags", "Flags", ba
 proto_zenoh.fields.init_flags        = ProtoField.uint8("zenoh.init.flags", "Flags", base.HEX)
 proto_zenoh.fields.init_vmaj         = ProtoField.uint8("zenoh.init.v_maj", "VMaj", base.u8)
 proto_zenoh.fields.init_vmin         = ProtoField.uint8("zenoh.init.v_min", "VMin", base.u8)
-proto_zenoh.fields.init_whatami      = ProtoField.uint8("zenoh.init.whatami", "WhatAmI", base.u8)
+proto_zenoh.fields.init_msgid      = ProtoField.uint8("zenoh.init.msgid", "WhatAmI", base.u8)
 proto_zenoh.fields.init_peerid       = ProtoField.bytes("zenoh.init.peer_id", "Peer ID", base.NONE)
 proto_zenoh.fields.init_snresolution = ProtoField.uint8("zenoh.init.sn_resolution", "SN Resolution", base.u8)
 proto_zenoh.fields.init_cookie       = ProtoField.bytes("zenoh.init.cookie", "Cookie", base.NONE)
@@ -77,7 +77,7 @@ function protect(tbl)
 end
 
 -- Zenoh Message Types
-ZENOH_WHATAMI = {
+ZENOH_MSGID = {
   DECLARE         = 0x0b,
   DATA            = 0x0c,
   QUERY           = 0x0d,
@@ -85,10 +85,10 @@ ZENOH_WHATAMI = {
   UNIT            = 0x0f,
   LINK_STATE_LIST = 0x10
 }
-ZENOH_WHATAMI = protect(ZENOH_WHATAMI)
+ZENOH_MSGID = protect(ZENOH_MSGID)
 
 -- Session Message Types
-SESSION_WHATAMI = {
+SESSION_MSGID = {
   SCOUT      = 0x01,
   HELLO      = 0x02,
   INIT       = 0x03,
@@ -100,15 +100,15 @@ SESSION_WHATAMI = {
   PING_PONG  = 0x09,
   FRAME      = 0x0a
 }
-SESSION_WHATAMI = protect(SESSION_WHATAMI)
+SESSION_MSGID = protect(SESSION_MSGID)
 
 -- Decorators Message Types
-DECORATORS_WHATAMI = {
+DECORATORS_MSGID = {
   ROUTING_CONTEXT = 0x1d,
   REPLY_CONTEXT   = 0x1e,
   ATTACHMENT      = 0x1f
 }
-DECORATORS_WHATAMI = protect(DECORATORS_WHATAMI)
+DECORATORS_MSGID = protect(DECORATORS_MSGID)
 
 -- Declaration Type Identifiers
 DECLARATION_ID = {
@@ -620,7 +620,7 @@ function parse_init(tree, buf)
   end
 
   local val, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.init_whatami, buf(i, len), val)
+  tree:add(proto_zenoh.fields.init_msgid, buf(i, len), val)
   i = i + len
 
   val, len = parse_zbytes(buf(i, -1))
@@ -719,35 +719,35 @@ function parse_frame(tree, buf, f_size)
   return i
 end
 
-function parse_header_flags(tree, buf, whatami)
+function parse_header_flags(tree, buf, msgid)
   local f_bitwise = {0x04, 0x02, 0x01}
   h_flags = bit.rshift(buf(0,1):uint(), 5)
 
   local f_str = ""
   for i,v in ipairs(f_bitwise) do
-    if whatami == ZENOH_WHATAMI.DECLARE then
+    if msgid == ZENOH_MSGID.DECLARE then
       flag = get_declare_flag_description(bit.band(h_flags, v))
-    elseif whatami == ZENOH_WHATAMI.DATA then
+    elseif msgid == ZENOH_MSGID.DATA then
       flag = get_data_flag_description(bit.band(h_flags, v))
-    elseif whatami == ZENOH_WHATAMI.QUERY then
-    elseif whatami == ZENOH_WHATAMI.PULL then
-    elseif whatami == ZENOH_WHATAMI.UNIT then
-    elseif whatami == ZENOH_WHATAMI.LINK_STATE_LIST then
-    elseif whatami == SESSION_WHATAMI.SCOUT then
-    elseif whatami == SESSION_WHATAMI.HELLO then
-    elseif whatami == SESSION_WHATAMI.INIT then
+    elseif msgid == ZENOH_MSGID.QUERY then
+    elseif msgid == ZENOH_MSGID.PULL then
+    elseif msgid == ZENOH_MSGID.UNIT then
+    elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
+    elseif msgid == SESSION_MSGID.SCOUT then
+    elseif msgid == SESSION_MSGID.HELLO then
+    elseif msgid == SESSION_MSGID.INIT then
       flag = get_init_flag_description(bit.band(h_flags, v))
-    elseif whatami == SESSION_WHATAMI.OPEN then
+    elseif msgid == SESSION_MSGID.OPEN then
       flag = get_open_flag_description(bit.band(h_flags, v))
-    elseif whatami == SESSION_WHATAMI.CLOSE then
+    elseif msgid == SESSION_MSGID.CLOSE then
       flag = get_close_flag_description(bit.band(h_flags, v))
-    elseif whatami == SESSION_WHATAMI.SYNC then
-    elseif whatami == SESSION_WHATAMI.ACK_NACK then
-    elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+    elseif msgid == SESSION_MSGID.SYNC then
+    elseif msgid == SESSION_MSGID.ACK_NACK then
+    elseif msgid == SESSION_MSGID.KEEP_ALIVE then
       flag = get_keepalive_flag_description(bit.band(h_flags, v))
-    elseif whatami == SESSION_WHATAMI.PING_PONG then
+    elseif msgid == SESSION_MSGID.PING_PONG then
       flag = get_pingpong_flag_description(bit.band(h_flags, v))
-    elseif whatami == SESSION_WHATAMI.FRAME then
+    elseif msgid == SESSION_MSGID.FRAME then
       flag = get_frame_flag_description(bit.band(h_flags, v))
     end
 
@@ -756,83 +756,83 @@ function parse_header_flags(tree, buf, whatami)
     end
   end
 
-  if whatami == ZENOH_WHATAMI.DECLARE then
+  if msgid == ZENOH_MSGID.DECLARE then
     tree:add(proto_zenoh.fields.declare_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
-  elseif whatami == ZENOH_WHATAMI.DATA then
+  elseif msgid == ZENOH_MSGID.DATA then
     tree:add(proto_zenoh.fields.data_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
-  elseif whatami == ZENOH_WHATAMI.QUERY then
-  elseif whatami == ZENOH_WHATAMI.PULL then
-  elseif whatami == ZENOH_WHATAMI.UNIT then
-  elseif whatami == ZENOH_WHATAMI.LINK_STATE_LIST then
-  elseif whatami == SESSION_WHATAMI.SCOUT then
-  elseif whatami == SESSION_WHATAMI.HELLO then
-  elseif whatami == SESSION_WHATAMI.INIT then
+  elseif msgid == ZENOH_MSGID.QUERY then
+  elseif msgid == ZENOH_MSGID.PULL then
+  elseif msgid == ZENOH_MSGID.UNIT then
+  elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
+  elseif msgid == SESSION_MSGID.SCOUT then
+  elseif msgid == SESSION_MSGID.HELLO then
+  elseif msgid == SESSION_MSGID.INIT then
     tree:add(proto_zenoh.fields.init_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
-  elseif whatami == SESSION_WHATAMI.OPEN then
+  elseif msgid == SESSION_MSGID.OPEN then
     tree:add(proto_zenoh.fields.open_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
-  elseif whatami == SESSION_WHATAMI.CLOSE then
+  elseif msgid == SESSION_MSGID.CLOSE then
     tree:add(proto_zenoh.fields.close_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
-  elseif whatami == SESSION_WHATAMI.SYNC then
-  elseif whatami == SESSION_WHATAMI.ACK_NACK then
-  elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+  elseif msgid == SESSION_MSGID.SYNC then
+  elseif msgid == SESSION_MSGID.ACK_NACK then
+  elseif msgid == SESSION_MSGID.KEEP_ALIVE then
     tree:add(proto_zenoh.fields.keepalive_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
-  elseif whatami == SESSION_WHATAMI.PING_PONG then
+  elseif msgid == SESSION_MSGID.PING_PONG then
     tree:add(proto_zenoh.fields.pingpong_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
-  elseif whatami == SESSION_WHATAMI.FRAME then
+  elseif msgid == SESSION_MSGID.FRAME then
     tree:add(proto_zenoh.fields.frame_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   end
 
   -- TODO: add bitwise flag substree
 end
 
-function parse_whatami(tree, buf)
-  local whatami = bit.band(buf(i, 1):uint(), 0x1F)
+function parse_msgid(tree, buf)
+  local msgid = bit.band(buf(i, 1):uint(), 0x1F)
 
-  if whatami == ZENOH_WHATAMI.DECLARE then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Declare)")
-    return ZENOH_WHATAMI.DECLARE
-  elseif whatami == ZENOH_WHATAMI.DATA then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Data)")
-    return ZENOH_WHATAMI.DATA
-  elseif whatami == ZENOH_WHATAMI.QUERY then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Query)")
-    return ZENOH_WHATAMI.QUERY
-  elseif whatami == ZENOH_WHATAMI.PULL then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Pull)")
-    return ZENOH_WHATAMI.PULL
-  elseif whatami == ZENOH_WHATAMI.UNIT then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Unit)")
-    return ZENOH_WHATAMI.UNIT
-  elseif whatami == SESSION_WHATAMI.SCOUT then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Scout)")
-    return SESSION_WHATAMI.SCOUT
-  elseif whatami == SESSION_WHATAMI.HELLO then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Hello)")
-    return SESSION_WHATAMI.HELLO
-  elseif whatami == SESSION_WHATAMI.INIT then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Init)")
-    return SESSION_WHATAMI.INIT
-  elseif whatami == SESSION_WHATAMI.OPEN then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Open)")
-    return SESSION_WHATAMI.OPEN
-  elseif whatami == SESSION_WHATAMI.CLOSE then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Close)")
-    return SESSION_WHATAMI.CLOSE
-  elseif whatami == SESSION_WHATAMI.SYNC then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Sync)")
-    return SESSION_WHATAMI.SYNC
-  elseif whatami == SESSION_WHATAMI.ACK_NACK then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(ACK-NACK)")
-    return SESSION_WHATAMI.ACK_NACK
-  elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Keep Alive)")
-    return SESSION_WHATAMI.KEEP_ALIVE
-  elseif whatami == SESSION_WHATAMI.PING_PONG then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Ping Pong)")
-    return SESSION_WHATAMI.PING_PONG
-  elseif whatami == SESSION_WHATAMI.FRAME then
-    tree:add(proto_zenoh.fields.header_whatami, buf(i, 1), whatami, base.u8, "(Frame)")
-    return SESSION_WHATAMI.FRAME
+  if msgid == ZENOH_MSGID.DECLARE then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Declare)")
+    return ZENOH_MSGID.DECLARE
+  elseif msgid == ZENOH_MSGID.DATA then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Data)")
+    return ZENOH_MSGID.DATA
+  elseif msgid == ZENOH_MSGID.QUERY then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Query)")
+    return ZENOH_MSGID.QUERY
+  elseif msgid == ZENOH_MSGID.PULL then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Pull)")
+    return ZENOH_MSGID.PULL
+  elseif msgid == ZENOH_MSGID.UNIT then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Unit)")
+    return ZENOH_MSGID.UNIT
+  elseif msgid == SESSION_MSGID.SCOUT then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Scout)")
+    return SESSION_MSGID.SCOUT
+  elseif msgid == SESSION_MSGID.HELLO then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Hello)")
+    return SESSION_MSGID.HELLO
+  elseif msgid == SESSION_MSGID.INIT then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Init)")
+    return SESSION_MSGID.INIT
+  elseif msgid == SESSION_MSGID.OPEN then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Open)")
+    return SESSION_MSGID.OPEN
+  elseif msgid == SESSION_MSGID.CLOSE then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Close)")
+    return SESSION_MSGID.CLOSE
+  elseif msgid == SESSION_MSGID.SYNC then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Sync)")
+    return SESSION_MSGID.SYNC
+  elseif msgid == SESSION_MSGID.ACK_NACK then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(ACK-NACK)")
+    return SESSION_MSGID.ACK_NACK
+  elseif msgid == SESSION_MSGID.KEEP_ALIVE then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Keep Alive)")
+    return SESSION_MSGID.KEEP_ALIVE
+  elseif msgid == SESSION_MSGID.PING_PONG then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Ping Pong)")
+    return SESSION_MSGID.PING_PONG
+  elseif msgid == SESSION_MSGID.FRAME then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Frame)")
+    return SESSION_MSGID.FRAME
   end
 
   return NULL
@@ -841,18 +841,18 @@ end
 function parse_header(tree, buf)
   local i = 0
 
-  local whatami = parse_whatami(tree, buf(i, 1))
-  parse_header_flags(tree, buf(i, 1), whatami)
+  local msgid = parse_msgid(tree, buf(i, 1))
+  parse_header_flags(tree, buf(i, 1), msgid)
   i = i + 1
 
-  return whatami, i
+  return msgid, i
 end
 
 function decode_message(tree, buf)
   local i = 0
 
   local h_subtree = tree:add(proto_zenoh, buf(i, 1), "Header")
-  local whatami, len = parse_header(h_subtree, buf(i, 1))
+  local msgid, len = parse_header(h_subtree, buf(i, 1))
   i = i + len
 
   -- NO PAYLOAD
@@ -864,29 +864,29 @@ function decode_message(tree, buf)
   -- PAYLOAD
   local p_subtree = tree:add(proto_zenoh, buf(i, -1), "Payload")
 
-  if whatami == ZENOH_WHATAMI.DECLARE then
+  if msgid == ZENOH_MSGID.DECLARE then
     len = parse_declare(p_subtree, buf(i, -1))
-  elseif whatami == ZENOH_WHATAMI.DATA then
+  elseif msgid == ZENOH_MSGID.DATA then
     len = parse_data(p_subtree, buf(i, -1))
-  elseif whatami == ZENOH_WHATAMI.QUERY then
-  elseif whatami == ZENOH_WHATAMI.PULL then
-  elseif whatami == ZENOH_WHATAMI.UNIT then
-  elseif whatami == ZENOH_WHATAMI.LINK_STATE_LIST then
-  elseif whatami == SESSION_WHATAMI.SCOUT then
-  elseif whatami == SESSION_WHATAMI.HELLO then
-  elseif whatami == SESSION_WHATAMI.INIT then
+  elseif msgid == ZENOH_MSGID.QUERY then
+  elseif msgid == ZENOH_MSGID.PULL then
+  elseif msgid == ZENOH_MSGID.UNIT then
+  elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
+  elseif msgid == SESSION_MSGID.SCOUT then
+  elseif msgid == SESSION_MSGID.HELLO then
+  elseif msgid == SESSION_MSGID.INIT then
     len = parse_init(p_subtree, buf(i, -1))
-  elseif whatami == SESSION_WHATAMI.OPEN then
+  elseif msgid == SESSION_MSGID.OPEN then
     len = parse_open(p_subtree, buf(i, -1))
-  elseif whatami == SESSION_WHATAMI.CLOSE then
+  elseif msgid == SESSION_MSGID.CLOSE then
     len = parse_close(p_subtree, buf(i, -1))
-  elseif whatami == SESSION_WHATAMI.SYNC then
-  elseif whatami == SESSION_WHATAMI.ACK_NACK then
-  elseif whatami == SESSION_WHATAMI.KEEP_ALIVE then
+  elseif msgid == SESSION_MSGID.SYNC then
+  elseif msgid == SESSION_MSGID.ACK_NACK then
+  elseif msgid == SESSION_MSGID.KEEP_ALIVE then
     len = parse_keepalive(p_subtree, buf(i, -1))
-  elseif whatami == SESSION_WHATAMI.PING_PONG then
+  elseif msgid == SESSION_MSGID.PING_PONG then
     len = parse_pingpong(p_subtree, buf(i, -1))
-  elseif whatami == SESSION_WHATAMI.FRAME then
+  elseif msgid == SESSION_MSGID.FRAME then
     len = parse_frame(p_subtree, buf(i, -1), buf:len())
   end
   i = i + len
