@@ -522,6 +522,11 @@ function parse_data(tree, buf)
   return i
 end
 
+function parse_link_state(tree, buf)
+  -- TODO: Parse content
+  return buf:len()
+end
+
 function parse_data_flags(tree, buf)
   local i = 0
 
@@ -803,6 +808,9 @@ function parse_msgid(tree, buf)
   elseif msgid == ZENOH_MSGID.UNIT then
     tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Unit)")
     return ZENOH_MSGID.UNIT
+  elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(LinkState)")
+    return ZENOH_MSGID.LINK_STATE_LIST
   elseif msgid == SESSION_MSGID.SCOUT then
     tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Scout)")
     return SESSION_MSGID.SCOUT
@@ -872,6 +880,7 @@ function decode_message(tree, buf)
   elseif msgid == ZENOH_MSGID.PULL then
   elseif msgid == ZENOH_MSGID.UNIT then
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
+    len = parse_link_state(p_subtree, buf(i, -1))
   elseif msgid == SESSION_MSGID.SCOUT then
   elseif msgid == SESSION_MSGID.HELLO then
   elseif msgid == SESSION_MSGID.INIT then
