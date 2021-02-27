@@ -1,5 +1,5 @@
 # Zenoh Dissector
-Zenoh protocol dissector for Wireshark
+[Zenoh](http://zenoh.io/) protocol dissector for Wireshark
 
 ## Under devopment
 
@@ -21,7 +21,7 @@ Zenoh protocol dissector for Wireshark
 - [ ] Session Messages
   - [ ] Scout
   - [ ] Hello
-  - [ ] Init
+  - [x] Init
   - [x] Open
   - [x] Close
   - [ ] Sync
@@ -36,7 +36,7 @@ Zenoh protocol dissector for Wireshark
 - [x] Decode Frame message (including several messages)
   - [ ] Support Frame fragmentation
 - [x] Decode multiple Zenoh messages in a single TCP message
-  - [ ] Handle Zenoh messages spit across TCP messages
+  - [x] Handle Zenoh messages split across TCP messages
 - [ ] Message filtering for framed messages
 - [ ] Implement unit tests
 - [ ] Extensive Testing
