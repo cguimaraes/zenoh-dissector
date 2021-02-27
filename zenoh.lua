@@ -35,7 +35,7 @@ proto_zenoh.fields.data_flags = ProtoField.uint8("zenoh.data.flags", "Flags", ba
 proto_zenoh.fields.init_flags        = ProtoField.uint8("zenoh.init.flags", "Flags", base.HEX)
 proto_zenoh.fields.init_vmaj         = ProtoField.uint8("zenoh.init.v_maj", "VMaj", base.u8)
 proto_zenoh.fields.init_vmin         = ProtoField.uint8("zenoh.init.v_min", "VMin", base.u8)
-proto_zenoh.fields.init_msgid      = ProtoField.uint8("zenoh.init.msgid", "WhatAmI", base.u8)
+proto_zenoh.fields.init_whatami      = ProtoField.uint8("zenoh.init.whatami", "WhatAmI", base.u8)
 proto_zenoh.fields.init_peerid       = ProtoField.bytes("zenoh.init.peer_id", "Peer ID", base.NONE)
 proto_zenoh.fields.init_snresolution = ProtoField.uint8("zenoh.init.sn_resolution", "SN Resolution", base.u8)
 proto_zenoh.fields.init_cookie       = ProtoField.bytes("zenoh.init.cookie", "Cookie", base.NONE)
@@ -625,7 +625,7 @@ function parse_init(tree, buf)
   end
 
   local val, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.init_msgid, buf(i, len), val)
+  tree:add(proto_zenoh.fields.init_whatami, buf(i, len), val)
   i = i + len
 
   val, len = parse_zbytes(buf(i, -1))
