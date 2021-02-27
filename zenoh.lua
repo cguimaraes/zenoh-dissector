@@ -864,7 +864,6 @@ function decode_message(tree, buf)
   i = i + len
 
   -- NO PAYLOAD
-  print("i: " .. i .. " BufLen: " .. buf:len())
   if i == buf:len() then
     return len
   end
