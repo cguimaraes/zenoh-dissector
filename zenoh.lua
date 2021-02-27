@@ -919,9 +919,20 @@ function dissector(buf, pinfo, root, is_tcp)
       i = i + 2
     end
 
+    if f_size > buf:len() - 2 then
+      pinfo.desegment_offset = 0
+      pinfo.desegment_len = DESEGMENT_ONE_MORE_SEGMENT
+      return
+    end
+
     tree = root:add(proto_zenoh, buf())
     len = decode_message(tree, buf(i, f_size))
-    i = i + len
+
+    if len > 0 then
+      i = i + len
+    elseif len == 0 then
+      return 0
+    end
   end
 end
 
