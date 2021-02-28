@@ -15,6 +15,7 @@
 -- along with this program.  If not, see <https://www.gnu.org/licenses/>.
 --
 
+
 --- DISSECTOR INFO & FIELDS ---
 local proto_zenoh_udp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
 local proto_zenoh_tcp = Proto("zenoh-udp", "Zenoh Protocol over UDP")
@@ -123,6 +124,8 @@ DECLARATION_ID = {
 }
 DECLARATION_ID = protect(DECLARATION_ID)
 
+------ Global Variables -----
+local pending_fragments = {}
 
 ----------- Flags -----------
 -- DECLARE Flags
@@ -311,9 +314,14 @@ function parse_zbytes(buf)
   local i = 0
 
   local val, len = parse_zint(buf(i, -1))
-  i = i + len + val
+  i = i + len
 
-  return buf(i - val, val), i
+  if val > buf:len() - i then
+    -- until the end of the buffer
+    return buf(i, -1), buf:len(), val - buf:len()
+  end
+
+  return buf(i, val), i + val
 end
 
 function parse_zstring(buf)
@@ -716,10 +724,34 @@ function parse_frame(tree, buf, f_size)
   tree:add(proto_zenoh.fields.frame_sn, buf(i, len), val)
   i = i + len
 
-  repeat
-    len = decode_message(tree, buf(i, -1))
-    i = i + len
-  until i == f_size - 1
+  if bit.band(h_flags, 0x02) == 0x02 then
+    local is_first_fragment = true
+    for _, v in pairs(pending_fragments) do
+      if v == val  then
+        is_first_fragment = false
+	table.remove(pending_fragments, _)
+        break
+      end
+    end
+
+    if is_first_fragment == true then
+      len = decode_message(tree, buf(i, -1))
+      i = i + len
+    else
+      tree:add(buf(i, -1), "Fragmented message (continuation): ", buf(i, -1))
+      i = buf:len()
+    end
+
+    if bit.band(h_flags, 0x04) ~= 0x04 then
+      table.insert(pending_fragments, val + 1)
+    end
+
+  else
+    repeat
+      len = decode_message(tree, buf(i, -1))
+      i = i + len
+    until i == f_size - 1
+  end
 
   return i
 end
