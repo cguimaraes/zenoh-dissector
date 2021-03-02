@@ -339,8 +339,8 @@ end
 function parse_reskey(tree, buf, is_k)
   local i = 0
 
-  subtree = tree:add("ResKey: ")
-  val, len = parse_zint(buf(i, -1))
+  local subtree = tree:add("ResKey")
+  local val, len = parse_zint(buf(i, -1))
   subtree:add(buf(i, len), "Resource ID: ", val)
   i = i + len
 
