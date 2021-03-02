@@ -647,7 +647,7 @@ function parse_init(tree, buf)
   i = i + len
 
   if bit.band(h_flags, 0x02) == 0x02 then
-    val, len = parse_zbytes(buf(i, -1))
+    val, len = parse_zint(buf(i, -1))
     tree:add(proto_zenoh.fields.init_snresolution, buf(i, len), val)
     i = i + len
   end
