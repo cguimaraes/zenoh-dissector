@@ -17,8 +17,8 @@
 
 
 --- DISSECTOR INFO & FIELDS ---
-local proto_zenoh_udp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
-local proto_zenoh_tcp = Proto("zenoh-udp", "Zenoh Protocol over UDP")
+local proto_zenoh_tcp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
+local proto_zenoh_udp = Proto("zenoh-udp", "Zenoh Protocol over UDP")
 local proto_zenoh = Proto("zenoh", "Zenoh Protocol")
 
 -- Zenoh Header
