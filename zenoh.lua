@@ -948,9 +948,12 @@ function dissector(buf, pinfo, root, is_tcp)
   pinfo.cols.protocol = proto_zenoh.name
 
   while i < buf:len() - 1 do
+    tree = root:add(proto_zenoh, buf())
+
     local f_size = buf():len()
     if is_tcp == true then
       f_size = buf(i, 2):le_uint()
+      tree:add_le(proto_zenoh_tcp.fields.len, buf(i, 2), f_size)
       i = i + 2
     end
 
@@ -960,9 +963,7 @@ function dissector(buf, pinfo, root, is_tcp)
       return
     end
 
-    tree = root:add(proto_zenoh, buf())
     if is_tcp then
-        tree:add_le(proto_zenoh_tcp.fields.len, buf(i,2))
     end
     len = decode_message(tree, buf(i, f_size))
 
