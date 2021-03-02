@@ -21,6 +21,9 @@ local proto_zenoh_tcp = Proto("zenoh-tcp", "Zenoh Protocol over TCP")
 local proto_zenoh_udp = Proto("zenoh-udp", "Zenoh Protocol over UDP")
 local proto_zenoh = Proto("zenoh", "Zenoh Protocol")
 
+-- Zenoh TCP
+proto_zenoh_tcp.fields.len = ProtoField.uint16("zenoh.len", "Len", base.u16)
+
 -- Zenoh Header
 proto_zenoh.fields.header_msgid = ProtoField.uint8("zenoh.msgid", "MsgId", base.HEX)
 
@@ -958,6 +961,9 @@ function dissector(buf, pinfo, root, is_tcp)
     end
 
     tree = root:add(proto_zenoh, buf())
+    if is_tcp then
+        tree:add_le(proto_zenoh_tcp.fields.len, buf(i,2))
+    end
     len = decode_message(tree, buf(i, f_size))
 
     if len > 0 then
