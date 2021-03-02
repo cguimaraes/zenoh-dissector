@@ -732,7 +732,6 @@ function parse_frame(tree, buf, f_size)
     for _, v in pairs(pending_fragments) do
       if v == val  then
         is_first_fragment = false
-	table.remove(pending_fragments, _)
         break
       end
     end
