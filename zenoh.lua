@@ -61,7 +61,7 @@ proto_zenoh.fields.keepalive_peerid = ProtoField.bytes("zenoh.keepalive.peerid",
 
 -- Ping Pong Message Specific
 proto_zenoh.fields.pingpong_flags = ProtoField.uint8("zenoh.pingpong.flags", "Flags", base.HEX)
-proto_zenoh.fields.pingpong_hash  = ProtoField.uint8("zenoh.pingpong.hash", "Hash", base.HEX)
+proto_zenoh.fields.pingpong_hash  = ProtoField.bytes("zenoh.pingpong.hash", "Hash", base.NONE)
 
 -- Frame Message Specific
 proto_zenoh.fields.frame_flags   = ProtoField.uint8("zenoh.frame.flags", "Flags", base.HEX)
@@ -526,9 +526,12 @@ function parse_data(tree, buf)
     i = i + len
   end
 
-  val, len = parse_zbytes(buf(i, -1))
-  tree:add(buf(i, len), "Payload: ", val:string())
-  i = i + len
+  local pl_val, pl_len = parse_zint(buf(i, -1))
+  local p_val, p_len = parse_zbytes(buf(i, -1))
+  local subtree = tree:add(buf(i, p_len), "Payload")
+  subtree:add(buf(i, pl_len), "Length: ", pl_val)
+  subtree:add(buf(i + pl_len, p_len - pl_len), "Payload: ", p_val:bytes():tohex())
+  i = i + p_len
 
   return i
 end
@@ -568,7 +571,7 @@ function parse_datainfo(tree, buf)
 
   if bit.band(d_flags, 0x01) == 0x01 then
     val, len = parse_zbytes(buf(i, -1))
-    tree:add(buf(i, len), "Source ID: ", val)
+    tree:add(buf(i, len), "Source ID: ", val:bytes():tohex())
     i = i + len
   end
 
@@ -580,7 +583,7 @@ function parse_datainfo(tree, buf)
 
   if bit.band(d_flags, 0x04) == 0x04 then
     val, len = parse_zbytes(buf(i, -1))
-    tree:add(buf(i, len), "First Router ID: ", val)
+    tree:add(buf(i, len), "First Router ID: ", val:bytes():tohex())
     i = i + len
   end
 
@@ -620,7 +623,7 @@ function parse_timestamp(tree, buf)
   i = i + len
 
   val, len = parse_zbytes(buf(i, -1))
-  subtree:add(buf(i, len), "ID: ", val)
+  subtree:add(buf(i, len), "ID: ", val:bytes():tohex())
   i = i + len
 
   return i
