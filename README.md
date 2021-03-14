@@ -9,10 +9,10 @@
       - [x] Publisher Declaration
       - [x] Subscriber Declaration
       - [x] Queryable Declaration
-      - [ ] Forget Resource
+      - [x] Forget Resource
       - [x] Forget Publisher
-      - [ ] Forget Subscriber
-      - [ ] Forget Queryable
+      - [x] Forget Subscriber
+      - [x] Forget Queryable
   - [x] Data
   - [ ] Query
   - [ ] Pull

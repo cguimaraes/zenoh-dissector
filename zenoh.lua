@@ -187,12 +187,45 @@ function get_declare_queryable_flag_description(flag)
   return f_description
 end
 
-function get_forget_publisher_flag_description(flag)
+function get_forget_resource_flag_description(flag)
   local f_description = "Unknown"
 
   if flag == 0x04 then f_description     = "Unused" -- X
   elseif flag == 0x02 then f_description = "Unused" -- X
   elseif flag == 0x01 then f_description = "Unused" -- X
+  end
+
+  return f_description
+end
+
+function get_forget_publisher_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "ResourceKey" -- K
+  elseif flag == 0x02 then f_description = "Unused"      -- X
+  elseif flag == 0x01 then f_description = "Unused"      -- X
+  end
+
+  return f_description
+end
+
+function get_forget_subscriber_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "ResourceKey" -- K
+  elseif flag == 0x02 then f_description = "Unused"      -- X
+  elseif flag == 0x01 then f_description = "Unused"      -- X
+  end
+
+  return f_description
+end
+
+function get_forget_queryable_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "ResourceKey" -- K
+  elseif flag == 0x02 then f_description = "Unused"      -- X
+  elseif flag == 0x01 then f_description = "Unused"      -- X
   end
 
   return f_description
@@ -384,13 +417,25 @@ function parse_declare(tree, buf)
       i = i + len
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_RESOURCE then
+      local a_subtree = tree:add(buf(i, 1), "Declaration [" .. a_size .. "] = Forget Resource")
+      len = parse_forget_resource(a_subtree, buf(i, -1))
+      i = i + len
+
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_PUBLISHER then
       local a_subtree = tree:add(buf(i, 1), "Declaration [" .. a_size .. "] = Forget Publisher")
       len = parse_forget_publisher(a_subtree, buf(i, -1))
       i = i + len
 
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_SUBSCRIBER then
+      local a_subtree = tree:add(buf(i, 1), "Declaration [" .. a_size .. "] = Forget Subscriber")
+      len = parse_forget_subscriber(a_subtree, buf(i, -1))
+      i = i + len
+
     elseif bit.band(did, 0x1F) == DECLARATION_ID.FORGET_QUERYABLE then
+      local a_subtree = tree:add(buf(i, 1), "Declaration [" .. a_size .. "] = Forget Queryable")
+      len = parse_forget_queryable(a_subtree, buf(i, -1))
+      i = i + len
+
     end
 
     a_size = a_size - 1
@@ -414,10 +459,13 @@ function parse_declare_flags(tree, buf, did)
     elseif did == DECLARATION_ID.QUERYABLE then
       flag = get_declare_queryable_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.FORGET_RESOURCE then
+      flag = get_forget_resource_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.FORGET_PUBLISHER then
       flag = get_forget_publisher_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.FORGET_SUBSCRIBER then
+      flag = get_forget_subscriber_flag_description(bit.band(d_flags, v))
     elseif did == DECLARATION_ID.FORGET_QUERYABLE then
+      flag = get_forget_queryable_flag_description(bit.band(d_flags, v))
     end
 
     if bit.band(d_flags, v) == v then
@@ -502,14 +550,50 @@ function parse_declare_queryable(tree, buf)
   return i
 end
 
+function parse_forget_resource(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.FORGET_RESOURCE)
+  i = i + 1
+
+  local val, len = parse_zint(buf(i, -1))
+  tree:add(buf(i, len), "Resource ID: ", val)
+  i = i + len
+
+  return i
+end
+
 function parse_forget_publisher(tree, buf)
   local i = 0
 
   parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.FORGET_PUBLISHER)
   i = i + 1
 
-  local val, len = parse_zint(buf(i, -1))
-  tree:add(buf(i, len), "Resource ID: ", val)
+  local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
+  i = i + len
+
+  return i
+end
+
+function parse_forget_subscriber(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.FORGET_SUBSCRIBER)
+  i = i + 1
+
+  local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
+  i = i + len
+
+  return i
+end
+
+function parse_forget_queryable(tree, buf)
+  local i = 0
+
+  parse_declare_flags(tree, buf(i, 1), DECLARATION_ID.FORGET_QUERYABLE)
+  i = i + 1
+
+  local len = parse_reskey(tree, buf(i, -1), bit.band(d_flags, 0x04) == 0x04)
   i = i + len
 
   return i
