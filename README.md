@@ -14,7 +14,7 @@
       - [x] Forget Subscriber
       - [x] Forget Queryable
   - [x] Data
-  - [ ] Query
+  - [x] Query
   - [ ] Pull
   - [ ] Unit
   - [ ] Link State List
