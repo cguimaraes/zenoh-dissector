@@ -19,7 +19,7 @@
   - [ ] Unit
   - [ ] Link State List
 - [ ] Session Messages
-  - [ ] Scout
+  - [x] Scout
   - [ ] Hello
   - [x] Init
   - [x] Open
