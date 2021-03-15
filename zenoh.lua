@@ -35,6 +35,11 @@ proto_zenoh.fields.declare_declaration_array  = ProtoField.bytes("zenoh.declare.
 -- Data Message Specific
 proto_zenoh.fields.data_flags = ProtoField.uint8("zenoh.data.flags", "Flags", base.HEX)
 
+-- Pull Message Specific
+proto_zenoh.fields.pull_flags      = ProtoField.uint8("zenoh.pull.flags", "Flags", base.HEX)
+proto_zenoh.fields.pull_pullid     = ProtoField.uint8("zenoh.pull.pullid", "Pull ID", base.u8)
+proto_zenoh.fields.pull_maxsamples = ProtoField.uint8("zenoh.pull.maxsamples", "Max Samples", base.u8)
+
 -- Query Message Specific
 proto_zenoh.fields.query_flags     = ProtoField.uint8("zenoh.query.flags", "Flags", base.HEX)
 proto_zenoh.fields.query_predicate = ProtoField.bytes("zenoh.query.predicate", "Predicate", base.NONE)
@@ -263,6 +268,18 @@ function get_data_internal_flag_description(flag)
   elseif flag == 0x04 then f_description = "First Router ID" -- C
   elseif flag == 0x02 then f_description = "Source SN"       -- B
   elseif flag == 0x01 then f_description = "Source ID"       -- A
+  end
+
+  return f_description
+end
+
+-- Pull flags
+function get_pull_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "ResourceKey" -- K
+  elseif flag == 0x02 then f_description = "MaxSamples"  -- N
+  elseif flag == 0x01 then f_description = "Final"       -- F
   end
 
   return f_description
@@ -746,6 +763,25 @@ function parse_timestamp(tree, buf)
   return i
 end
 
+function parse_pull(tree, buf)
+  local i = 0
+
+  local len = parse_reskey(tree, buf(i, -1), bit.band(h_flags, 0x04) == 0x04)
+  i = i + len
+
+  local val, len = parse_zint(buf(i, -1))
+  tree:add(proto_zenoh.fields.pull_pullid, buf(i, len), val)
+  i = i + len
+
+  if bit.band(h_flags, 0x02) == 0x02 then
+    val, len = parse_zint(buf(i, -1))
+    tree:add(proto_zenoh.fields.pull_maxsamples, buf(i, len), val)
+    i = i + len
+  end
+
+  return i
+end
+
 function parse_query(tree, buf)
   local i = 0
 
@@ -992,6 +1028,7 @@ function parse_header_flags(tree, buf, msgid)
     elseif msgid == ZENOH_MSGID.QUERY then
       flag = get_query_flag_description(bit.band(h_flags, v))
     elseif msgid == ZENOH_MSGID.PULL then
+      flag = get_pull_flag_description(bit.band(h_flags, v))
     elseif msgid == ZENOH_MSGID.UNIT then
     elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
     elseif msgid == SESSION_MSGID.SCOUT then
@@ -1025,6 +1062,7 @@ function parse_header_flags(tree, buf, msgid)
   elseif msgid == ZENOH_MSGID.QUERY then
     tree:add(proto_zenoh.fields.query_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == ZENOH_MSGID.PULL then
+    tree:add(proto_zenoh.fields.pull_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == ZENOH_MSGID.UNIT then
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
   elseif msgid == SESSION_MSGID.SCOUT then
@@ -1137,6 +1175,7 @@ function decode_message(tree, buf)
   elseif msgid == ZENOH_MSGID.QUERY then
     len = parse_query(p_subtree, buf(i, -1))
   elseif msgid == ZENOH_MSGID.PULL then
+    len = parse_pull(p_subtree, buf(i, -1))
   elseif msgid == ZENOH_MSGID.UNIT then
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
     len = parse_link_state(p_subtree, buf(i, -1))
