@@ -1228,8 +1228,6 @@ function dissector(buf, pinfo, root, is_tcp)
       return
     end
 
-    if is_tcp then
-    end
     len = decode_message(tree, buf(i, f_size))
 
     if len > 0 then
