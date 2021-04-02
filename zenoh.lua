@@ -85,6 +85,16 @@ proto_zenoh.fields.frame_flags   = ProtoField.uint8("zenoh.frame.flags", "Flags"
 proto_zenoh.fields.frame_sn      = ProtoField.uint8("zenoh.frame.sn", "SN", base.u8)
 proto_zenoh.fields.frame_payload = ProtoField.uint8("zenoh.frame.payload", "Payload", base.u8)
 
+-- Routing Context Message Specific
+proto_zenoh.fields.routingcontext_flags = ProtoField.uint8("zenoh.routingcontext.flags", "Flags", base.HEX)
+proto_zenoh.fields.routingcontext_tid   = ProtoField.uint8("zenoh.routingcontext.tid", "TID", base.u8)
+
+-- Reply Context Message Specific
+proto_zenoh.fields.replycontext_flags      = ProtoField.uint8("zenoh.replycontext.flags", "Flags", base.HEX)
+proto_zenoh.fields.replycontext_qid        = ProtoField.uint8("zenoh.replycontext.qid", "QID", base.u8)
+proto_zenoh.fields.replycontext_sourcekind = ProtoField.uint8("zenoh.replycontext.source_kind", "Source Kind", base.u8)
+proto_zenoh.fields.replycontext_replierid  = ProtoField.bytes("zenoh.replycontext.replier_id", "Replier ID", base.NONE)
+
 
 ---------- CONSTANTS ----------
 function protect(tbl)
@@ -391,6 +401,30 @@ function get_frame_flag_description(flag)
   if flag == 0x04 then f_description     = "End"      -- E
   elseif flag == 0x02 then f_description = "Fragment" -- F
   elseif flag == 0x01 then f_description = "Reliable" -- R
+  end
+
+  return f_description
+end
+
+-- Routing Context flags
+function get_routingcontext_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "Unused" -- X
+  elseif flag == 0x02 then f_description = "Unused" -- X
+  elseif flag == 0x01 then f_description = "Unused" -- X
+  end
+
+  return f_description
+end
+
+-- Reply Context flags
+function get_replycontext_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "Unused" -- X
+  elseif flag == 0x02 then f_description = "Unused" -- X
+  elseif flag == 0x01 then f_description = "Final"  -- F
   end
 
   return f_description
@@ -1039,6 +1073,59 @@ function parse_frame(tree, buf, f_size)
   return i
 end
 
+function parse_routing_context(tree, buf)
+  local i = 0
+
+  local val, len = parse_zint(buf, i)
+  tree:add(proto_zenoh.fields.routingcontext_tid, buf(i, len), val)
+  i = i + len
+
+  return i
+end
+
+function parse_reply_context(tree, buf)
+  local i = 0
+
+  local val, len = parse_zint(buf, i)
+  tree:add(proto_zenoh.fields.replycontext_qid, buf(i, len), val)
+  i = i + len
+
+  val, len = parse_zint(buf(i, -1))
+  tree:add(proto_zenoh.fields.replycontext_sourcekind, buf(i, len), val)
+  i = i + len
+
+  if bit.band(h_flags, 0x01) == 0x00 then
+    val, len = parse_zbytes(buf(i, -1))
+    tree:add(proto_zenoh.fields.replycontext_replierid, buf(i, len), val)
+    i = i + len
+  end
+
+  return i
+end
+
+function parse_attachment(tree, buf)
+  local i = 0
+
+  local pl_val, pl_len = parse_zint(buf(i, -1))
+  local p_val, p_len = parse_zbytes(buf(i, -1))
+  local subtree = tree:add(buf(i, p_len), "Buffer")
+  subtree:add(buf(i, pl_len), "Length: ", pl_val)
+  subtree:add(buf(i + pl_len, p_len - pl_len), "Payload: ", p_val:bytes():tohex())
+  i = i + p_len
+
+  return i
+end
+
+function parse_header_enc(tree, buf)
+  local enc = bit.rshift(buf(0,1):uint(), 5)
+  local s_enc = ""
+  if enc == 0x00 then
+    s_enc = "Zenoh Properties"
+  end
+
+  tree:add(buf(0, 1), s_enc, buf(0, 1))
+end
+
 function parse_header_flags(tree, buf, msgid)
   local f_bitwise = {0x04, 0x02, 0x01}
   h_flags = bit.rshift(buf(0,1):uint(), 5)
@@ -1073,6 +1160,10 @@ function parse_header_flags(tree, buf, msgid)
       flag = get_pingpong_flag_description(bit.band(h_flags, v))
     elseif msgid == SESSION_MSGID.FRAME then
       flag = get_frame_flag_description(bit.band(h_flags, v))
+    elseif msgid == DECORATORS_MSGID.ROUTING_CONTEXT then
+      flag = get_routingcontext_flag_description(bit.band(h_flags, v))
+    elseif msgid == DECORATORS_MSGID.REPLY_CONTEXT then
+      flag = get_replycontext_flag_description(bit.band(h_flags, v))
     end
 
     if bit.band(h_flags, v) == v then
@@ -1108,6 +1199,10 @@ function parse_header_flags(tree, buf, msgid)
     tree:add(proto_zenoh.fields.pingpong_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == SESSION_MSGID.FRAME then
     tree:add(proto_zenoh.fields.frame_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+  elseif msgid == DECORATORS_MSGID.ROUTING_CONTEXT then
+    tree:add(proto_zenoh.fields.routingcontext_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
+  elseif msgid == DECORATORS_MSGID.REPLY_CONTEXT then
+    tree:add(proto_zenoh.fields.replycontext_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   end
 
   -- TODO: add bitwise flag substree
@@ -1164,6 +1259,15 @@ function parse_msgid(tree, buf)
   elseif msgid == SESSION_MSGID.FRAME then
     tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Frame)")
     return SESSION_MSGID.FRAME
+  elseif msgid == DECORATORS_MSGID.ROUTING_CONTEXT then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Routing Context)")
+    return DECORATORS_MSGID.ROUTING_CONTEXT
+  elseif msgid == DECORATORS_MSGID.REPLY_CONTEXT then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Reply Context)")
+    return DECORATORS_MSGID.REPLY_CONTEXT
+  elseif msgid == DECORATORS_MSGID.ATTACHMENT then
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Attachment)")
+    return DECORATORS_MSGID.ATTACHMENT
   end
 
   return NULL
@@ -1173,7 +1277,11 @@ function parse_header(tree, buf)
   local i = 0
 
   local msgid = parse_msgid(tree, buf(i, 1))
-  parse_header_flags(tree, buf(i, 1), msgid)
+  if msgid == DECORATORS_MSGID.ATTACHMENT then
+    parse_header_enc(tree, buf(i, 1))
+  else
+    parse_header_flags(tree, buf(i, 1), msgid)
+  end
   i = i + 1
 
   return msgid, i
@@ -1223,6 +1331,12 @@ function decode_message(tree, buf)
     len = parse_pingpong(p_subtree, buf(i, -1))
   elseif msgid == SESSION_MSGID.FRAME then
     len = parse_frame(p_subtree, buf(i, -1), buf:len())
+  elseif msgid == DECORATORS_MSGID.ROUTING_CONTEXT then
+    len = parse_routing_context(p_subtree, buf(i, -1), buf:len())
+  elseif msgid == DECORATORS_MSGID.REPLY_CONTEXT then
+    len = parse_reply_context(p_subtree, buf(i, -1), buf:len())
+  elseif msgid == DECORATORS_MSGID.ATTACHMENT then
+    len = parse_attachment(p_subtree, buf(i, -1), buf:len())
   end
   i = i + len
 
