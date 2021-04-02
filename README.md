@@ -20,7 +20,7 @@
   - [x] Link State List
 - [ ] Session Messages
   - [x] Scout
-  - [ ] Hello
+  - [x] Hello
   - [x] Init
   - [x] Open
   - [x] Close
