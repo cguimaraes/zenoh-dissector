@@ -3,7 +3,7 @@
 
 ## Under devopment
 
-- [ ] Zenoh Messages
+- [x] Zenoh Messages
   - [x] Declare
       - [x] Resource Declaration
       - [x] Publisher Declaration
@@ -17,7 +17,7 @@
   - [x] Query
   - [x] Pull
   - [x] Unit
-  - [ ] Link State List
+  - [x] Link State List
 - [ ] Session Messages
   - [x] Scout
   - [ ] Hello

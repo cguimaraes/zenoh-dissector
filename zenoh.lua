@@ -42,6 +42,10 @@ proto_zenoh.fields.pull_maxsamples = ProtoField.uint8("zenoh.pull.maxsamples", "
 -- Unit Message Specific
 proto_zenoh.fields.unit_flags = ProtoField.uint8("zenoh.unit.flags", "Flags", base.HEX)
 
+-- Link State List Message Specific
+proto_zenoh.fields.linkstatelist_flags = ProtoField.uint8("zenoh.linkstatelist.flags", "Flags", base.HEX)
+proto_zenoh.fields.linkstatelist_size  = ProtoField.uint8("zenoh.linkstatelist.number", "Number of Link States", base.u8)
+
 -- Query Message Specific
 proto_zenoh.fields.query_flags     = ProtoField.uint8("zenoh.query.flags", "Flags", base.HEX)
 proto_zenoh.fields.query_predicate = ProtoField.bytes("zenoh.query.predicate", "Predicate", base.NONE)
@@ -304,6 +308,35 @@ function get_unit_flag_description(flag)
   if flag == 0x04 then f_description     = "Unused"   -- X
   elseif flag == 0x02 then f_description = "Unused"   -- X
   elseif flag == 0x01 then f_description = "Dropping" -- D
+  end
+
+  return f_description
+end
+
+-- Link State flags
+function get_link_state_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x80 then f_description     = "Unused"     -- X
+  elseif flag == 0x40 then f_description = "Unused"     -- X
+  elseif flag == 0x20 then f_description = "Unused"     -- X
+  elseif flag == 0x10 then f_description = "Unused"     -- X
+  elseif flag == 0x08 then f_description = "Unused"     -- X
+  elseif flag == 0x04 then f_description = "Locators"   -- L
+  elseif flag == 0x02 then f_description = "WhatAmI"    -- W
+  elseif flag == 0x01 then f_description = "PingOrPong" -- P
+  end
+
+  return f_description
+end
+
+-- Link State List flags
+function get_linkstatelist_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "Unused" -- X
+  elseif flag == 0x02 then f_description = "Unused" -- X
+  elseif flag == 0x01 then f_description = "Unused" -- X
   end
 
   return f_description
@@ -718,9 +751,135 @@ function parse_data(tree, buf)
   return i
 end
 
+function parse_link(tree, buf)
+  local i = 0
+
+  local val, len = parse_zint(buf(i, -1))
+  tree:add(buf(i, len), "Link: ", val)
+  i = i + len
+
+  return i
+end
+
+function parse_links(tree, buf)
+  local i = 0
+
+  local a_size, len = parse_zint(buf(i, -1))
+  subtree = tree:add(buf(i, len), "Links Size Array: ", a_size)
+  i = i + len
+
+  while a_size > 0 do
+    len = parse_link(subtree, buf(i, -1))
+    i = i + len
+
+    a_size = a_size - 1
+  end
+
+  return i
+end
+
+function parse_locator(tree, buf)
+  local i = 0
+
+  val, len = parse_zstring(buf(i, -1))
+  tree:add(buf(i, len), "Locator: ", val)
+  i = i + len
+
+  return i
+end
+
+function parse_locators(tree, buf)
+  local i = 0
+
+  local a_size, len = parse_zint(buf(i, -1))
+  subtree = tree:add(buf(i, len), "Locators Size Array: ", a_size)
+  i = i + len
+
+  while a_size > 0 do
+    len = parse_locator(subtree, buf(i, -1))
+    i = i + len
+
+    a_size = a_size - 1
+  end
+
+  return i
+end
+
+function parse_link_state_flags(tree, buf)
+  local i = 0
+
+  local f_bitwise = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
+  l_flags = buf(0,1):uint()
+
+  local f_str = ""
+  for i,v in ipairs(f_bitwise) do
+    flag = get_link_state_flag_description(bit.band(l_flags, v))
+
+    if bit.band(d_flags, v) == v then
+      f_str = f_str .. flag .. ", "
+    end
+  end
+
+  tree:add(buf(0, 1), "Flags", l_flags):append_text(" (" .. f_str:sub(0, -3) .. ")") -- FIXME: print in hex
+  -- TODO: add bitwise flag substree
+  i = i + 1
+
+  return i
+end
+
+
 function parse_link_state(tree, buf)
-  -- TODO: Parse content
-  return buf:len()
+  local i = 0
+
+  len = parse_link_state_flags(tree, buf(i, -1))
+  i = i + len
+
+  local val, len = parse_zint(buf(i, -1))
+  tree:add(buf(i, len), "PS ID: ", val)
+  i = i + len
+
+  local val, len = parse_zint(buf(i, -1))
+  tree:add(buf(i, len), "SN: ", val)
+  i = i + len
+
+  if bit.band(h_flags, 0x01) == 0x01 then
+    val, len = parse_zbytes(buf(i, -1))
+    tree:add(buf(i, len), "Peer ID: ", val:bytes():tohex())
+    i = i + len
+  end
+
+  if bit.band(h_flags, 0x02) == 0x02 then
+    val, len = parse_zint(buf(i, -1))
+    tree:add(buf(i, len), "WhatAmI: ", val)
+    i = i + len
+  end
+
+  if bit.band(h_flags, 0x04) == 0x04 then
+    len = parse_locators(tree, buf(i, -1))
+    i = i + len
+  end
+
+  len = parse_links(tree, buf(i, -1))
+  i = i + len
+
+  return i
+end
+
+function parse_link_state_list(tree, buf)
+  local i = 0
+
+  local a_size, len = parse_zint(buf(i, -1))
+  tree:add(proto_zenoh.fields.linkstatelist_array, buf(i, len), a_size)
+  i = i + len
+
+  while a_size > 0 do
+    len = parse_link_state(tree, buf(i, -1))
+    i = i + len
+
+    a_size = a_size - 1
+  end
+
+  return i
 end
 
 function parse_data_flags(tree, buf)
@@ -1142,6 +1301,7 @@ function parse_header_flags(tree, buf, msgid)
     elseif msgid == ZENOH_MSGID.UNIT then
       flag = get_unit_flag_description(bit.band(h_flags, v))
     elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
+      flag = get_linkstatelist_flag_description(bit.band(h_flags, v))
     elseif msgid == SESSION_MSGID.SCOUT then
       flag = get_scout_flag_description(bit.band(h_flags, v))
     elseif msgid == SESSION_MSGID.HELLO then
@@ -1181,6 +1341,7 @@ function parse_header_flags(tree, buf, msgid)
   elseif msgid == ZENOH_MSGID.UNIT then
     tree:add(proto_zenoh.fields.unit_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
+    tree:add(proto_zenoh.fields.linkstatelist_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == SESSION_MSGID.SCOUT then
     tree:add(proto_zenoh.fields.scout_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == SESSION_MSGID.HELLO then
@@ -1226,7 +1387,7 @@ function parse_msgid(tree, buf)
     tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Unit)")
     return ZENOH_MSGID.UNIT
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
-    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(LinkState)")
+    tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(LinkStateList)")
     return ZENOH_MSGID.LINK_STATE_LIST
   elseif msgid == SESSION_MSGID.SCOUT then
     tree:add(proto_zenoh.fields.header_msgid, buf(i, 1), msgid, base.u8, "(Scout)")
@@ -1312,7 +1473,7 @@ function decode_message(tree, buf)
   elseif msgid == ZENOH_MSGID.UNIT then
     len = parse_unit(p_subtree, buf(i, -1))
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
-    len = parse_link_state(p_subtree, buf(i, -1))
+    len = parse_link_state_list(p_subtree, buf(i, -1))
   elseif msgid == SESSION_MSGID.SCOUT then
     len = parse_scout(p_subtree, buf(i, -1))
   elseif msgid == SESSION_MSGID.HELLO then
