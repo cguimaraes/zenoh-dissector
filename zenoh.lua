@@ -71,6 +71,11 @@ proto_zenoh.fields.close_flags  = ProtoField.uint8("zenoh.close.flags", "Flags",
 proto_zenoh.fields.close_peerid = ProtoField.bytes("zenoh.close.peerid", "Peer ID", base.NONE)
 proto_zenoh.fields.close_reason = ProtoField.uint8("zenoh.close.reason", "Reason", base.u8)
 
+-- Sync Message Specific
+proto_zenoh.fields.sync_flags = ProtoField.uint8("zenoh.sync.flags", "Flags", base.HEX)
+proto_zenoh.fields.sync_sn    = ProtoField.uint8("zenoh.sync.sn", "SN", base.u8)
+proto_zenoh.fields.sync_count = ProtoField.uint8("zenoh.sync.count", "Count", base.u8)
+
 -- Scout Message Specific
 proto_zenoh.fields.scout_flags = ProtoField.uint8("zenoh.scout.flags", "Flags", base.HEX)
 proto_zenoh.fields.scout_what  = ProtoField.uint8("zenoh.scout.what", "What", base.u8)
@@ -390,6 +395,18 @@ function get_close_flag_description(flag)
   if flag == 0x04 then f_description     = "Unused"    -- X
   elseif flag == 0x02 then f_description = "CloseLink" -- K
   elseif flag == 0x01 then f_description = "PeerID"    -- I
+  end
+
+  return f_description
+end
+
+-- Sync flags
+function get_sync_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "Unused"   -- X
+  elseif flag == 0x02 then f_description = "Count"    -- C
+  elseif flag == 0x01 then f_description = "Reliable" -- R
   end
 
   return f_description
@@ -1176,6 +1193,22 @@ function parse_close(tree, buf)
   return i
 end
 
+function parse_sync(tree, buf)
+  local i = 0
+
+  local val, len = parse_zint(buf(i, -1))
+  tree:add(proto_zenoh.fields.sync_sn, buf(i, len), val)
+  i = i + len
+
+  if bit.band(h_flags, 0x01) == 0x01 and bit.band(h_flags, 0x02) == 0x02 then
+    local val, len = parse_zint(buf(i, -1))
+    tree:add(proto_zenoh.fields.sync_count, buf(i, len), val)
+    i = i + len
+  end
+
+  return i
+end
+
 function parse_scout(tree, buf)
   local i = 0
 
@@ -1353,6 +1386,7 @@ function parse_header_flags(tree, buf, msgid)
     elseif msgid == SESSION_MSGID.CLOSE then
       flag = get_close_flag_description(bit.band(h_flags, v))
     elseif msgid == SESSION_MSGID.SYNC then
+      flag = get_sync_flag_description(bit.band(h_flags, v))
     elseif msgid == SESSION_MSGID.ACK_NACK then
     elseif msgid == SESSION_MSGID.KEEP_ALIVE then
       flag = get_keepalive_flag_description(bit.band(h_flags, v))
@@ -1394,6 +1428,7 @@ function parse_header_flags(tree, buf, msgid)
   elseif msgid == SESSION_MSGID.CLOSE then
     tree:add(proto_zenoh.fields.close_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == SESSION_MSGID.SYNC then
+    tree:add(proto_zenoh.fields.sync_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == SESSION_MSGID.ACK_NACK then
   elseif msgid == SESSION_MSGID.KEEP_ALIVE then
     tree:add(proto_zenoh.fields.keepalive_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
@@ -1527,6 +1562,7 @@ function decode_message(tree, buf)
   elseif msgid == SESSION_MSGID.CLOSE then
     len = parse_close(p_subtree, buf(i, -1))
   elseif msgid == SESSION_MSGID.SYNC then
+    len = parse_sync(p_subtree, buf(i, -1))
   elseif msgid == SESSION_MSGID.ACK_NACK then
   elseif msgid == SESSION_MSGID.KEEP_ALIVE then
     len = parse_keepalive(p_subtree, buf(i, -1))

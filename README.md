@@ -24,7 +24,7 @@
   - [x] Init
   - [x] Open
   - [x] Close
-  - [ ] Sync
+  - [x] Sync
   - [ ] Ack Nack
   - [x] Keep Alive
   - [x] Ping Pong
