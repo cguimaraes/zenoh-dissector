@@ -40,6 +40,9 @@ proto_zenoh.fields.pull_flags      = ProtoField.uint8("zenoh.pull.flags", "Flags
 proto_zenoh.fields.pull_pullid     = ProtoField.uint8("zenoh.pull.pullid", "Pull ID", base.u8)
 proto_zenoh.fields.pull_maxsamples = ProtoField.uint8("zenoh.pull.maxsamples", "Max Samples", base.u8)
 
+-- Unit Message Specific
+proto_zenoh.fields.unit_flags = ProtoField.uint8("zenoh.unit.flags", "Flags", base.HEX)
+
 -- Query Message Specific
 proto_zenoh.fields.query_flags     = ProtoField.uint8("zenoh.query.flags", "Flags", base.HEX)
 proto_zenoh.fields.query_predicate = ProtoField.bytes("zenoh.query.predicate", "Predicate", base.NONE)
@@ -280,6 +283,18 @@ function get_pull_flag_description(flag)
   if flag == 0x04 then f_description     = "ResourceKey" -- K
   elseif flag == 0x02 then f_description = "MaxSamples"  -- N
   elseif flag == 0x01 then f_description = "Final"       -- F
+  end
+
+  return f_description
+end
+
+-- Unit flags
+function get_unit_flag_description(flag)
+  local f_description = "Unknown"
+
+  if flag == 0x04 then f_description     = "Unused"   -- X
+  elseif flag == 0x02 then f_description = "Unused"   -- X
+  elseif flag == 0x01 then f_description = "Dropping" -- D
   end
 
   return f_description
@@ -782,6 +797,15 @@ function parse_pull(tree, buf)
   return i
 end
 
+function parse_unit(tree, buf)
+  local i = 0
+
+  -- Placeholder for future changes in the UNIT message
+  -- Currently, UNIT message does not have payload
+
+  return i
+end
+
 function parse_query(tree, buf)
   local i = 0
 
@@ -1030,6 +1054,7 @@ function parse_header_flags(tree, buf, msgid)
     elseif msgid == ZENOH_MSGID.PULL then
       flag = get_pull_flag_description(bit.band(h_flags, v))
     elseif msgid == ZENOH_MSGID.UNIT then
+      flag = get_unit_flag_description(bit.band(h_flags, v))
     elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
     elseif msgid == SESSION_MSGID.SCOUT then
       flag = get_scout_flag_description(bit.band(h_flags, v))
@@ -1064,6 +1089,7 @@ function parse_header_flags(tree, buf, msgid)
   elseif msgid == ZENOH_MSGID.PULL then
     tree:add(proto_zenoh.fields.pull_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == ZENOH_MSGID.UNIT then
+    tree:add(proto_zenoh.fields.unit_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
   elseif msgid == SESSION_MSGID.SCOUT then
     tree:add(proto_zenoh.fields.scout_flags, buf(0, 1), h_flags):append_text(" (" .. f_str:sub(0, -3) .. ")")
@@ -1177,6 +1203,7 @@ function decode_message(tree, buf)
   elseif msgid == ZENOH_MSGID.PULL then
     len = parse_pull(p_subtree, buf(i, -1))
   elseif msgid == ZENOH_MSGID.UNIT then
+    len = parse_unit(p_subtree, buf(i, -1))
   elseif msgid == ZENOH_MSGID.LINK_STATE_LIST then
     len = parse_link_state(p_subtree, buf(i, -1))
   elseif msgid == SESSION_MSGID.SCOUT then
