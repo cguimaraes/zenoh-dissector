@@ -30,7 +30,6 @@ proto_zenoh.fields.header_msgid = ProtoField.uint8("zenoh.msgid", "MsgId", base.
 -- Declare Message Specific
 proto_zenoh.fields.declare_flags              = ProtoField.uint8("zenoh.declare.flags", "Flags", base.HEX)
 proto_zenoh.fields.declare_num_of_declaration = ProtoField.uint8("zenoh.declare.number", "Number of Declarations", base.u8)
-proto_zenoh.fields.declare_declaration_array  = ProtoField.bytes("zenoh.declare.array", "Declaration Array", base.NONE)
 
 -- Data Message Specific
 proto_zenoh.fields.data_flags = ProtoField.uint8("zenoh.data.flags", "Flags", base.HEX)
