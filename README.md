@@ -1,5 +1,7 @@
 # Zenoh Dissector
-[Zenoh](http://zenoh.io/) protocol dissector for Wireshark
+[Zenoh](http://zenoh.io/) protocol dissector for Wireshark.
+
+![zenoh dissector banner](https://github.com/cguimaraes/zenoh-dissector/raw/main/zenoh-wireshark.png)
 
 ## Under devopment
 
