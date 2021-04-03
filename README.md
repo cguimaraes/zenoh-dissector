@@ -3,7 +3,7 @@
 
 ![zenoh dissector banner](https://github.com/cguimaraes/zenoh-dissector/raw/main/zenoh-wireshark.png)
 
-## Under devopment
+## Under development
 
 - [x] Zenoh Messages
   - [x] Declare
@@ -40,8 +40,8 @@
 - [x] Decode multiple Zenoh messages in a single TCP message
   - [x] Handle Zenoh messages split across TCP messages
 - [ ] Message filtering for framed messages
-- [ ] Implement unit tests
-- [ ] Extensive Testing
+- [ ] Implement test suite (ongoing) 
+- [ ] Extensive testing
 
 ## Usage
 
