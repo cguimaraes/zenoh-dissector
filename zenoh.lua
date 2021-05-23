@@ -1331,7 +1331,7 @@ function parse_frame(tree, buf, f_size)
     repeat
       len = decode_message(tree, buf(i, -1))
       i = i + len
-    until i == f_size - 1
+    until i == f_size + 1
   end
 
   return i
