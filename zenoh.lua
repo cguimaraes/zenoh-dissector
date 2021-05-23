@@ -1638,7 +1638,7 @@ function dissector(buf, pinfo, root, is_tcp)
       i = i + 2
     end
 
-    if f_size > buf:len() - (is_tcp and 2 or 0) then
+    if f_size > buf:len() - (is_tcp == true and 2 or 0) then
       pinfo.desegment_offset = 0
       pinfo.desegment_len = DESEGMENT_ONE_MORE_SEGMENT
       return
