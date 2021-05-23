@@ -1628,7 +1628,6 @@ function dissector(buf, pinfo, root, is_tcp)
 
   pinfo.cols.protocol = proto_zenoh.name
 
-  while i < buf:len() - 1 do
     tree = root:add(proto_zenoh, buf())
 
     local f_size = buf():len()
@@ -1644,14 +1643,11 @@ function dissector(buf, pinfo, root, is_tcp)
       return
     end
 
-    len = decode_message(tree, buf(i, f_size))
-
-    if len > 0 then
-      i = i + len
-    elseif len == 0 then
-      return 0
-    end
+  while i < buf:len() do
+    len = decode_message(tree, buf(i, f_size - i))
+    i = i + len
   end
+  return 0
 end
 
 function proto_zenoh_udp.dissector(buf, pinfo, root)
