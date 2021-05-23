@@ -866,7 +866,7 @@ function parse_link_state_flags(tree, buf)
   for i,v in ipairs(f_bitwise) do
     flag = get_link_state_flag_description(bit.band(l_flags, v))
 
-    if bit.band(d_flags, v) == v then
+    if bit.band(l_flags, v) == v then
       f_str = f_str .. flag .. ", "
     end
   end
@@ -920,7 +920,7 @@ function parse_link_state_list(tree, buf)
   local i = 0
 
   local a_size, len = parse_zint(buf(i, -1))
-  tree:add(proto_zenoh.fields.linkstatelist_array, buf(i, len), a_size)
+  tree:add(proto_zenoh.fields.linkstatelist_size, buf(i, len), a_size)
   i = i + len
 
   while a_size > 0 do
