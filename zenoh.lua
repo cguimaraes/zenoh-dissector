@@ -1669,3 +1669,128 @@ do
     udp_port_table:add(7447, proto_zenoh_udp)
 end
 
+
+-- check if the headers and flags could match
+-- with some zenoh message
+-- 
+local function check_potencial_msg(msg_id)
+  local msg_name = "Unknown"
+  local msgid = bit.band(msg_id, 0x1F)
+  local flags = bit.rshift(msg_id, 4)
+
+  -- SESSION --
+  if msgid == SESSION_MSGID.HELLO then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06 or flags == 0x08 or flags == 0x0A or flags == 0x0C  or flags == 0x0E) then
+      msg_name = "HELLO" 
+    end
+  elseif msgid == SESSION_MSGID.INIT then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06 or flags == 0x08 or flags == 0x0A or flags == 0x0C  or flags == 0x0E) then
+      msg_name = "INIT" 
+    end 
+  elseif msgid == SESSION_MSGID.OPEN then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06 or flags == 0x08 or flags == 0x0A or flags == 0x0C  or flags == 0x0E) then
+      msg_name = "OPEN" 
+    end 
+  elseif msgid == SESSION_MSGID.CLOSE then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06) then
+      msg_name = "CLOSE" 
+    end 
+  elseif msgid == SESSION_MSGID.SYNC then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06) then
+      msg_name = "SYNC" 
+    end 
+  elseif msgid == SESSION_MSGID.ACK_NACK then
+    if (flags == 0x00 or flags == 0x02) then
+      msg_name = "ACK_NACK" 
+    end
+  elseif msgid == SESSION_MSGID.KEEP_ALIVE then
+    if (flags == 0x00 or flags == 0x02) then
+      msg_name = "KEEP_ALIVE" 
+    end
+  elseif msgid == SESSION_MSGID.PING_PONG then
+    if (flags == 0x00 or flags == 0x02) then
+      msg_name = "PING_PONG" 
+    end 
+  elseif msgid == SESSION_MSGID.FRAME then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06 or flags == 0x08 or flags == 0x0A or flags == 0x0C  or flags == 0x0E) then
+      msg_name = "FRAME" 
+    end 
+  -- DECORATORS --
+  elseif msgid == SESSION_MSGID.ATTACHMENT then
+    if (flags == 0x00) then
+      msg_name = "ATTACHMENT" 
+    end 
+  elseif msgid == SESSION_MSGID.ROUTING_CONTEXT then
+    if (flags == 0x00) then
+      msg_name = "ROUTING_CONTEXT" 
+    end
+  elseif msgid == SESSION_MSGID.REPLY_CONTEXT then
+    if (flags == 0x00 or flags == 0x02) then
+      msg_name = "REPLY_CONTEXT" 
+    end
+  -- ZENOH --
+  elseif msgid == SESSION_MSGID.DECLARE then
+    if (flags == 0x00) then
+      msg_name = "DECLARE" 
+    end
+  elseif msgid == SESSION_MSGID.DATA then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06 or flags == 0x08 or flags == 0x0A or flags == 0x0C  or flags == 0x0E) then
+      msg_name = "DATA" 
+    end
+  elseif msgid == SESSION_MSGID.QUERY then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x08 or flags == 0x0a) then
+      msg_name = "QUERY" 
+    end
+  elseif msgid == SESSION_MSGID.PULL then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06 or flags == 0x08 or flags == 0x0A or flags == 0x0C  or flags == 0x0E) then
+      msg_name = "PULL" 
+    end
+  elseif msgid == SESSION_MSGID.UNIT then
+    if (flags == 0x00 or flags == 0x02 or flags == 0x04 or flags == 0x06 or flags == 0x08 or flags == 0x0A or flags == 0x0C  or flags == 0x0E) then
+      msg_name = "UNIT" 
+    end
+  elseif msgid == SESSION_MSGID.LINK_STATE_LIST then
+    if (flags == 0x00) then
+      msg_name = "LINK_STATE_LIST"
+    end 
+  end
+
+  return msg_name
+end
+
+
+local function udp_heuristic_checker(buffer, pinfo, tree)
+  -- guard for lenght
+  length = buffer:len()
+  if length < 2 then return false end
+
+  local potencial_msg_id = buffer(0,1):uint()
+  local msg_name = check_potencial_msg(potencial_msg_id)
+
+  if msg_name ~=  "Unknown" then
+    proto_zenoh_udp.dissector(buffer, pinfo, tree, false)
+    return true
+  else 
+    return false
+  end
+end
+
+
+local function tcp_heuristic_checker(buffer, pinfo, tree)
+  -- guard for lenght
+  length = buffer:len()
+  if length < 2 then return false end
+
+  local potencial_msg_id = buffer(1,2):uint()
+  local msg_name = check_potencial_msg(potencial_msg_id)
+
+  if msg_name ~=  "Unknown" then
+    proto_zenoh_tcp.dissector(buffer, pinfo, tree, true)
+    return true
+  else 
+    return false
+  end
+end
+
+proto_zenoh:register_heuristic("udp", udp_heuristic_checker)
+proto_zenoh:register_heuristic("tcp", tcp_heuristic_checker)
